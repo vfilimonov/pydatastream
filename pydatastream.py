@@ -1,4 +1,5 @@
 import pandas as pd
+import datetime as dt
 from suds.client import Client
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
@@ -128,26 +129,90 @@ class Datastream:
         ### Testing if no errors
         if status['StatusType'] != 'Connected':
             if raise_on_error:
-                raise DatastreamException('%s (error %i): "%s"' %
+                raise DatastreamException('%s (error %i): %s --> "%s"' %
                                           (status['StatusType'], status['StatusCode'],
-                                           status['StatusMessage']))
+                                           status['StatusMessage'], status['Request']))
             else:
                 return pd.DataFrame(), {}, status
 
         ### Parsing metadata of the symbol
+        ### NB! currency might be returned as symbol thus "unicode" shoud be used
         metadata = {'Frequency': str(get_field('FREQUENCY')),
-                    'Currency': str(get_field('CCY')),
-                    'DisplayName': str(get_field('DISPNAME')),
+                    'Currency': unicode(get_field('CCY')),
+                    'DisplayName': unicode(get_field('DISPNAME')),
                     'Symbol': str(get_field('SYMBOL'))}
 
-        ### Parsing retrieved fields
+        ### Fields with data
         fields = [str(x[0]) for x in record['Fields'][0]
                   if x[0] not in ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE']]
 
-        data = pd.DataFrame({x:get_field(x)[0] for x in fields},
-                            index=get_field('DATE')[0])
+        ### Check if we have a single value or a series
+        if isinstance(get_field('DATE'), dt.datetime):
+            data = pd.DataFrame({x:[get_field(x)] for x in fields},
+                                index=[get_field('DATE')])
+        else:
+            data = pd.DataFrame({x:get_field(x)[0] for x in fields},
+                                index=get_field('DATE')[0])
+
+        ### Incorporate metadata to dataframe if required
         if inline_metadata:
             for x in metadata:
                 data[x] = metadata[x]
-
         return data, metadata, status
+
+    @staticmethod
+    def construct_request(ticker, fields, date=None,
+                          date_from=None, date_to=None, freq='D'):
+        """Construct a request string for querying TR DWE.
+
+           tickers - ticker or symbol
+           fields  - list of fields.
+           date    - date for a single-date query
+           date_from, date_to - date range (used only if "date" is not specified)
+           freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
+
+           Some of available fields:
+           P  - adjusted closing price
+           OP - opening price
+           PH - high price
+           PL - low price
+           VO - volume, which is expressed in 1000's of shares.
+           UP - unadjusted price
+           OI - open interest
+
+           MV - market value
+           EPS - earnings per share
+           DI - dividend index
+           MTVB - market to book value
+           PTVB - price to book value
+           ...
+
+           The full list of data fields is available at http://dtg.tfn.com/.
+        """
+        request = ticker
+        if fields is not None:
+            request += '~='+','.join(fields)
+        if date is not None:
+            request += '~@'+pd.to_datetime(date).strftime('%Y-%m-%d')
+        else:
+            if date_from is not None:
+                request += '~'+pd.to_datetime(date_from).strftime('%Y-%m-%d')
+            if date_to is not None:
+                request += '~:'+pd.to_datetime(date_to).strftime('%Y-%m-%d')
+        request += '~'+freq
+        return request
+
+    def fetch(self, tickers, fields, date=None,
+              date_from=None, date_to=None, freq='D', raise_on_error=True):
+        """Fetch data from TR DWE.
+        """
+        if isinstance(tickers, str):
+            tickers = [tickers]
+
+        ### TODO: request multiple tickers
+        query = self.construct_request(tickers[0], fields, date, date_from, date_to, freq)
+        raw = self.request(query)
+        (data, meta, status) = self.parse_record(raw, raise_on_error=raise_on_error)
+
+        ### TODO: format metadata and return
+        return data
