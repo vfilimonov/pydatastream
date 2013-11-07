@@ -41,14 +41,33 @@ class datastream:
         res = self.client.service.Sources(self.userdata, 0)
         return [x[0] for x in res[0]]
 
-    def request_record(self, instrument, fields, source='Datastream',
-                       options=None, symbol_set=None, tag=None):
-        """General function to retrieve one record."""
+    def request(self, query, source='Datastream',
+                fields=None, options=None, symbol_set=None, tag=None):
+        """General function to retrieve one record.
+
+           query - query string for DWE system. This may be a simple instrument name
+                   or more complicated request. Refer to the documentation for the
+                   format.
+           source - The name of datasource (default: "Datastream")
+           fields - Fields to be retrieved (used when the requester does not want all
+                    fields to be delivered).
+           options - Options for specific data source. Many of datasources do not require
+                     opptions string. Refer to the documentation of the specific
+                     datasource for allowed syntax.
+           symbol_set - The symbol set used inside the instrument (used for mapping
+                        identifiers within the request. Refer to the documentation for
+                        the details.
+           tag - User-defined cookie that can be used to match up requests and response.
+                 It will be returned back in the response. The string should not be
+                 longer than 256 characters.
+        """
 
         RD = self.client.factory.create('RequestData')
         RD.Source = source
-        RD.Instrument = instrument
-        RD.Fields = fields
+        RD.Instrument = query
+        if fields is not None:
+            RD.Fields = self.client.factory.create('ArrayOfString')
+            RD.Fields.string = fields
         RD.SymbolSet = symbol_set
         RD.Options = options
         RD.Tag = tag
