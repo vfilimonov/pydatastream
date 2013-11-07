@@ -25,21 +25,29 @@ class datastream:
     def version(self):
         """Return version of the TR DWE."""
         res = self.client.service.Version()
-        return res[0]
+        return '.'.join([str(x) for x in res[0]])
 
     def system_info(self):
         """Return system information."""
         res = self.client.service.SystemInfo()
-        res = {x[0]:x[1] for x in res[0]}
-        res['OSVersion'] = res['OSVersion'][0]
-        res['RuntimeVersion'] = res['RuntimeVersion'][0]
-        res['Version'] = res['Version'][0]
+        res = {str(x[0]):x[1] for x in res[0]}
+
+        to_str = lambda arr: '.'.join([str(x) for x in arr[0]])
+        res['OSVersion'] = to_str(res['OSVersion'])
+        res['RuntimeVersion'] = to_str(res['RuntimeVersion'])
+        res['Version'] = to_str(res['Version'])
+
+        res['Name'] = str(res['Name'])
+        res['Server'] = str(res['Server'])
+        res['LocalNameCheck'] = str(res['LocalNameCheck'])
+        res['UserHostAddress'] = str(res['UserHostAddress'])
+
         return res
 
     def sources(self):
         """Return available sources of data."""
         res = self.client.service.Sources(self.userdata, 0)
-        return [x[0] for x in res[0]]
+        return [str(x[0]) for x in res[0]]
 
     def request(self, query, source='Datastream',
                 fields=None, options=None, symbol_set=None, tag=None):
