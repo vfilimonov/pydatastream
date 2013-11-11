@@ -27,6 +27,9 @@ class Datastream:
         self.userdata.Username = username
         self.userdata.Password = password
 
+        ### If true then request string will be printed
+        self.show_request = False
+
     def version(self):
         """Return version of the TR DWE."""
         res = self.client.service.Version()
@@ -205,12 +208,39 @@ class Datastream:
     def fetch(self, tickers, fields, date=None,
               date_from=None, date_to=None, freq='D', raise_on_error=True):
         """Fetch data from TR DWE.
+
+           tickers - ticker or symbol
+           fields  - list of fields.
+           date    - date for a single-date query
+           date_from, date_to - date range (used only if "date" is not specified)
+           freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
+
+           Some of available fields:
+           P  - adjusted closing price
+           OP - opening price
+           PH - high price
+           PL - low price
+           VO - volume, which is expressed in 1000's of shares.
+           UP - unadjusted price
+           OI - open interest
+
+           MV - market value
+           EPS - earnings per share
+           DI - dividend index
+           MTVB - market to book value
+           PTVB - price to book value
+           ...
+
+           The full list of data fields is available at http://dtg.tfn.com/.
         """
+        ### TODO: get_daily
         if isinstance(tickers, str):
             tickers = [tickers]
 
         ### TODO: request multiple tickers
         query = self.construct_request(tickers[0], fields, date, date_from, date_to, freq)
+        if self.show_request:
+            print 'Request:', query
         raw = self.request(query)
         (data, meta, status) = self.parse_record(raw, raise_on_error=raise_on_error)
 
