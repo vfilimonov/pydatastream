@@ -1,5 +1,6 @@
 import pandas as pd
 import datetime as dt
+import warnings
 from suds.client import Client
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
@@ -90,6 +91,7 @@ class Datastream:
 
         return self.client.service.RequestRecord(self.userdata, rd, 0)
 
+    #====================================================================================
     @staticmethod
     def parse_record(record, inline_metadata=False, raise_on_error=True):
         """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
@@ -222,6 +224,7 @@ class Datastream:
         request += '~'+freq
         return request
 
+    #====================================================================================
     def fetch(self, tickers, fields, date=None,
               date_from=None, date_to=None, freq='D', raise_on_error=True, only_data=True):
         """Fetch data from TR DWE.
@@ -253,7 +256,6 @@ class Datastream:
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
-        ### TODO: get_daily
         if isinstance(tickers, str):
             tickers = [tickers]
 
@@ -269,3 +271,64 @@ class Datastream:
             return data
         else:
             return data, meta, status
+
+    #====================================================================================
+    def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):
+        """Get Open, High, Low, Close prices and daily Volume for a given ticker.
+
+           ticker  - ticker or symbol
+           date    - date for a single-date query
+           date_from, date_to - date range (used only if "date" is not specified)
+
+           Returns pandas.Dataframe with data. If error occurs, then it is printed as
+           a warning.
+        """
+        (data, meta, status) = self.fetch(ticker+"~OHLCV", None,
+                                          date, date_from, date_to, 'D',
+                                          raise_on_error=False, only_data=False)
+        if status['StatusType'] != 'Connected':
+            if isinstance(status['StatusMessage'], str):
+                warnings.warn('[DWE] ' + status['StatusMessage'])
+            elif isinstance(status['StatusMessage'], list):
+                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+        return data
+
+    def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
+        """Get Open, High, Low and Close prices for a given ticker.
+
+           ticker  - ticker or symbol
+           date    - date for a single-date query
+           date_from, date_to - date range (used only if "date" is not specified)
+
+           Returns pandas.Dataframe with data. If error occurs, then it is printed as
+           a warning.
+        """
+        (data, meta, status) = self.fetch(ticker+"~OHLC", None,
+                                          date, date_from, date_to, 'D',
+                                          raise_on_error=False, only_data=False)
+        if status['StatusType'] != 'Connected':
+            if isinstance(status['StatusMessage'], str):
+                warnings.warn('[DWE] ' + status['StatusMessage'])
+            elif isinstance(status['StatusMessage'], list):
+                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+        return data
+
+    def get_price(self, ticker, date=None, date_from=None, date_to=None):
+        """Get Close price for a given ticker.
+
+           ticker  - ticker or symbol
+           date    - date for a single-date query
+           date_from, date_to - date range (used only if "date" is not specified)
+
+           Returns pandas.Dataframe with data. If error occurs, then it is printed as
+           a warning.
+        """
+        (data, meta, status) = self.fetch(ticker, None,
+                                          date, date_from, date_to, 'D',
+                                          raise_on_error=False, only_data=False)
+        if status['StatusType'] != 'Connected':
+            if isinstance(status['StatusMessage'], str):
+                warnings.warn('[DWE] ' + status['StatusMessage'])
+            elif isinstance(status['StatusMessage'], list):
+                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+        return data
