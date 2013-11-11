@@ -194,6 +194,8 @@ class Datastream:
         """
         request = ticker
         if fields is not None:
+            if isinstance(fields, str):
+                fields = [fields]
             request += '~='+','.join(fields)
         if date is not None:
             request += '~@'+pd.to_datetime(date).strftime('%Y-%m-%d')
