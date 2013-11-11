@@ -97,6 +97,8 @@ class Datastream:
 
            inline_metadata - if True, then info about symbol, currency, frequency and
                              displayname will be included into dataframe with data.
+           raise_on_error - if True then error request will raise, otherwise either
+                            empty dataframe or partially retrieved data will be returned
 
            data - pandas.DataFrame with retrieved data.
            metadata - disctionary with info about symbol, currency, frequency and
@@ -138,16 +140,28 @@ class Datastream:
             else:
                 return pd.DataFrame(), {}, status
 
-        ### Parsing metadata of the symbol
-        ### NB! currency might be returned as symbol thus "unicode" shoud be used
-        metadata = {'Frequency': str(get_field('FREQUENCY')),
-                    'Currency': unicode(get_field('CCY')),
-                    'DisplayName': unicode(get_field('DISPNAME')),
-                    'Symbol': str(get_field('SYMBOL'))}
+        error = [str(x[1]) for x in record['Fields'][0] if 'INSTERROR' in x[0]]
+        if len(error)>0:
+            if raise_on_error:
+                raise DatastreamException('Error: %s --> "%s"' %
+                                          (error,
+                                           status['Request']))
+            else:
+                status['StatusMessage'] = error
+                status['StatusType'] = 'INSTERROR'
+                metadata = {}
+        else:
+            ### Parsing metadata of the symbol
+            ### NB! currency might be returned as symbol thus "unicode" shoud be used
+            metadata = {'Frequency': str(get_field('FREQUENCY')),
+                        'Currency': unicode(get_field('CCY')),
+                        'DisplayName': unicode(get_field('DISPNAME')),
+                        'Symbol': str(get_field('SYMBOL'))}
 
         ### Fields with data
+        meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE']
         fields = [str(x[0]) for x in record['Fields'][0]
-                  if x[0] not in ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE']]
+                  if (x[0] not in meta_fields and 'INSTERROR' not in x[0])]
 
         ### Check if we have a single value or a series
         if isinstance(get_field('DATE'), dt.datetime):
@@ -176,7 +190,7 @@ class Datastream:
 
            Some of available fields:
            P  - adjusted closing price
-           OP - opening price
+           PO - opening price
            PH - high price
            PL - low price
            VO - volume, which is expressed in 1000's of shares.
@@ -195,8 +209,9 @@ class Datastream:
         request = ticker
         if fields is not None:
             if isinstance(fields, str):
-                fields = [fields]
-            request += '~='+','.join(fields)
+                request += '~='+fields
+            elif isinstance(fields, list) and len(fields)>0:
+                request += '~='+','.join(fields)
         if date is not None:
             request += '~@'+pd.to_datetime(date).strftime('%Y-%m-%d')
         else:
@@ -208,7 +223,7 @@ class Datastream:
         return request
 
     def fetch(self, tickers, fields, date=None,
-              date_from=None, date_to=None, freq='D', raise_on_error=True):
+              date_from=None, date_to=None, freq='D', raise_on_error=True, only_data=True):
         """Fetch data from TR DWE.
 
            tickers - ticker or symbol
@@ -216,10 +231,13 @@ class Datastream:
            date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
+           raise_on_error - if True then error request will raise, otherwise either
+                            empty dataframe or partially retrieved data will be returned
+           only_data - if True then metadata and status data will not be returned
 
            Some of available fields:
            P  - adjusted closing price
-           OP - opening price
+           PO - opening price
            PH - high price
            PL - low price
            VO - volume, which is expressed in 1000's of shares.
@@ -247,4 +265,7 @@ class Datastream:
         (data, meta, status) = self.parse_record(raw, raise_on_error=raise_on_error)
 
         ### TODO: format metadata and return
-        return data
+        if only_data:
+            return data
+        else:
+            return data, meta, status
