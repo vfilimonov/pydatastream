@@ -31,6 +31,17 @@ class Datastream:
         ### If true then request string will be printed
         self.show_request = False
 
+    @staticmethod
+    def info():
+        print 'Datastream Navigator:'
+        print 'http://product.datastream.com/navigator/'
+        print ''
+        print 'Datastream documentation:'
+        print 'http://dtg.tfn.com/data/DataStream.html'
+        print ''
+        print 'Dataworks Enterprise documentation:'
+        print 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/'
+
     def version(self):
         """Return version of the TR DWE."""
         res = self.client.service.Version()
@@ -180,8 +191,8 @@ class Datastream:
         return data, metadata, status
 
     @staticmethod
-    def construct_request(ticker, fields, date=None,
-                          date_from=None, date_to=None, freq='D'):
+    def construct_request(ticker, fields=None, date=None,
+                          date_from=None, date_to=None, freq=None):
         """Construct a request string for querying TR DWE.
 
            tickers - ticker or symbol
@@ -221,11 +232,12 @@ class Datastream:
                 request += '~'+pd.to_datetime(date_from).strftime('%Y-%m-%d')
             if date_to is not None:
                 request += '~:'+pd.to_datetime(date_to).strftime('%Y-%m-%d')
-        request += '~'+freq
+        if freq is not None:
+            request += '~'+freq
         return request
 
     #====================================================================================
-    def fetch(self, tickers, fields, date=None,
+    def fetch(self, tickers, fields=None, date=None,
               date_from=None, date_to=None, freq='D', raise_on_error=True, only_data=True):
         """Fetch data from TR DWE.
 
