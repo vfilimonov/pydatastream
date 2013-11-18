@@ -344,3 +344,54 @@ class Datastream:
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
         return data
+
+    #====================================================================================
+    def get_constituents(self, index_ticker, date=None, raise_on_error=True):
+        """ Get a list of all constituents of a given index.
+
+            index_ticker - Datastream ticker for index
+            date         - date for which list should be retrieved (if None then
+                           list of present constituents is retrieved)
+        """
+        if date is not None:
+            str_date = pd.to_datetime(date).strftime('%m%y')
+        else:
+            str_date = ''
+        query = 'L' + index_ticker + str_date + '~XREF'
+        if self.show_request:
+            print 'Request:', query
+
+        raw = self.request(query)
+
+        ### Parsing status
+        status = {'Source': str(raw['Source']),
+                  'StatusType': str(raw['StatusType']),
+                  'StatusCode': raw['StatusCode'],
+                  'StatusMessage': str(raw['StatusMessage']),
+                  'Request': str(raw['Instrument'])}
+
+        ### Testing if no errors
+        if status['StatusType'] != 'Connected':
+            if raise_on_error:
+                raise DatastreamException('%s (error %i): %s --> "%s"' %
+                                          (status['StatusType'], status['StatusCode'],
+                                           status['StatusMessage'], status['Request']))
+            else:
+                return pd.DataFrame(), status
+
+        ### Convert record to dict
+        record = {x[0]:x[1] for x in raw['Fields'][0]}
+
+        ### All fields that are available
+        fields = [x for x in record if '_' not in x]
+        fields.remove('DATE')
+
+        ### Number of elements
+        num = len([x[0] for x in record if 'SYMBOL' in x])
+
+        ### field naming 'CCY', 'CCY_2', 'CCY_3', ...
+        fld_name = lambda field, id: field if id==1 else field+'_%i'%(id)
+
+        res = pd.DataFrame({fld:[record[fld_name(fld,ind+1)] for ind in range(num)]
+                            for fld in fields})
+        return (res, status)
