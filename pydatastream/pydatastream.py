@@ -28,6 +28,10 @@ class Datastream:
         self.userdata.Username = username
         self.userdata.Password = password
 
+        ### Check available data sources
+        if 'Datastream' not in self.sources():
+            warnings.warn("'Datastream' source is not available for given subscription!")
+
         ### If true then request string will be printed
         self.show_request = False
 
