@@ -17,6 +17,9 @@ class Datastream:
         """
         self.client = Client(url, username=username, password=password)
 
+        ### If true then request string will be printed
+        self.show_request = False
+
         ### Trying to connect
         try:
             self.ver = self.version()
@@ -31,9 +34,6 @@ class Datastream:
         ### Check available data sources
         if 'Datastream' not in self.sources():
             warnings.warn("'Datastream' source is not available for given subscription!")
-
-        ### If true then request string will be printed
-        self.show_request = False
 
     @staticmethod
     def info():
@@ -93,6 +93,9 @@ class Datastream:
                  It will be returned back in the response. The string should not be
                  longer than 256 characters.
         """
+
+        if self.show_request:
+            print 'Request:', query
 
         rd = self.client.factory.create('RequestData')
         rd.Source = source
@@ -277,8 +280,6 @@ class Datastream:
 
         ### TODO: request multiple tickers
         query = self.construct_request(tickers[0], fields, date, date_from, date_to, freq)
-        if self.show_request:
-            print 'Request:', query
         raw = self.request(query)
         (data, meta, status) = self.parse_record(raw, raise_on_error=raise_on_error)
 
@@ -362,9 +363,6 @@ class Datastream:
         else:
             str_date = ''
         query = 'L' + index_ticker + str_date + '~XREF'
-        if self.show_request:
-            print 'Request:', query
-
         raw = self.request(query)
 
         ### Parsing status
