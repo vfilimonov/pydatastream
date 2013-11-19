@@ -17,8 +17,11 @@ class Datastream:
         """
         self.client = Client(url, username=username, password=password)
 
-        ### If true then request string will be printed
-        self.show_request = False
+        self.show_request = False   # If True then request string will be printed
+        self.last_status = None     # Will contain status of last request
+        self.raise_on_error = True  # if True then error request will raise, otherwise
+                                    # either empty dataframe or partially retrieved
+                                    # data will be returned
 
         ### Trying to connect
         try:
@@ -110,20 +113,11 @@ class Datastream:
         return self.client.service.RequestRecord(self.userdata, rd, 0)
 
     #====================================================================================
-    @staticmethod
-    def parse_record(record, inline_metadata=False, raise_on_error=True):
-        """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
-           Returns tuple (data, metadata, status)
+    def status(self, record=None):
+        """Extract status from the retrieved data and save it as a property of an object.
+           If record with data is not specified then the status of previous operation is
+           returned.
 
-           inline_metadata - if True, then info about symbol, currency, frequency and
-                             displayname will be included into dataframe with data.
-           raise_on_error - if True then error request will raise, otherwise either
-                            empty dataframe or partially retrieved data will be returned
-
-           data - pandas.DataFrame with retrieved data.
-           metadata - disctionary with info about symbol, currency, frequency and
-                      displayname (if inline_metadata==True then this info is also
-                      duplicated as fields in data)
            status - dictionary with data source, string with request and status type,
                     code and message.
 
@@ -142,33 +136,61 @@ class Datastream:
                                  11 - 'Blocking Timeout'
                                  12 - 'Internal'
         """
+        if record is not None:
+            self.last_status = {'Source': str(record['Source']),
+                                'StatusType': str(record['StatusType']),
+                                'StatusCode': record['StatusCode'],
+                                'StatusMessage': str(record['StatusMessage']),
+                                'Request': str(record['Instrument'])}
+        return self.last_status
+
+    def _test_status_and_warn(self):
+        """Test status of last request and post warning if necessary.
+        """
+        status = self.last_status
+        if status['StatusType'] != 'Connected':
+            if isinstance(status['StatusMessage'], str):
+                warnings.warn('[DWE] ' + status['StatusMessage'])
+            elif isinstance(status['StatusMessage'], list):
+                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+
+
+    def parse_record(self, record, inline_metadata=False):
+        """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
+           Returns tuple (data, metadata, status)
+
+           inline_metadata - if True, then info about symbol, currency, frequency and
+                             displayname will be included into dataframe with data.
+
+           data - pandas.DataFrame with retrieved data.
+           metadata - disctionary with info about symbol, currency, frequency and
+                      displayname (if inline_metadata==True then this info is also
+                      duplicated as fields in data)
+        """
         get_field = lambda name: [x[1] for x in record['Fields'][0] if x[0] == name][0]
 
         ### Parsing status
-        status = {'Source': str(record['Source']),
-                  'StatusType': str(record['StatusType']),
-                  'StatusCode': record['StatusCode'],
-                  'StatusMessage': str(record['StatusMessage']),
-                  'Request': str(record['Instrument'])}
+        status = self.status(record)
 
         ### Testing if no errors
         if status['StatusType'] != 'Connected':
-            if raise_on_error:
+            if self.raise_on_error:
                 raise DatastreamException('%s (error %i): %s --> "%s"' %
                                           (status['StatusType'], status['StatusCode'],
                                            status['StatusMessage'], status['Request']))
             else:
-                return pd.DataFrame(), {}, status
+                self._test_status_and_warn()
+                return pd.DataFrame(), {}
 
         error = [str(x[1]) for x in record['Fields'][0] if 'INSTERROR' in x[0]]
         if len(error)>0:
-            if raise_on_error:
+            if self.raise_on_error:
                 raise DatastreamException('Error: %s --> "%s"' %
-                                          (error,
-                                           status['Request']))
+                                          (error, status['Request']))
             else:
-                status['StatusMessage'] = error
-                status['StatusType'] = 'INSTERROR'
+                self.last_status['StatusMessage'] = error
+                self.last_status['StatusType'] = 'INSTERROR'
+                self._test_status_and_warn()
                 metadata = {}
         else:
             ### Parsing metadata of the symbol
@@ -195,7 +217,7 @@ class Datastream:
         if inline_metadata:
             for x in metadata:
                 data[x] = metadata[x]
-        return data, metadata, status
+        return data, metadata
 
     @staticmethod
     def construct_request(ticker, fields=None, date=None,
@@ -245,7 +267,7 @@ class Datastream:
 
     #====================================================================================
     def fetch(self, tickers, fields=None, date=None,
-              date_from=None, date_to=None, freq='D', raise_on_error=True, only_data=True):
+              date_from=None, date_to=None, freq='D', only_data=True):
         """Fetch data from TR DWE.
 
            tickers - ticker or symbol
@@ -253,9 +275,7 @@ class Datastream:
            date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
-           raise_on_error - if True then error request will raise, otherwise either
-                            empty dataframe or partially retrieved data will be returned
-           only_data - if True then metadata and status data will not be returned
+           only_data - if True then metadatawill not be returned
 
            Some of available fields:
            P  - adjusted closing price
@@ -281,13 +301,13 @@ class Datastream:
         ### TODO: request multiple tickers
         query = self.construct_request(tickers[0], fields, date, date_from, date_to, freq)
         raw = self.request(query)
-        (data, meta, status) = self.parse_record(raw, raise_on_error=raise_on_error)
+        (data, meta) = self.parse_record(raw)
 
         ### TODO: format metadata and return
         if only_data:
             return data
         else:
-            return data, meta, status
+            return data, meta
 
     #====================================================================================
     def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):
@@ -300,14 +320,9 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
-        (data, meta, status) = self.fetch(ticker+"~OHLCV", None,
-                                          date, date_from, date_to, 'D',
-                                          raise_on_error=False, only_data=False)
-        if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], str):
-                warnings.warn('[DWE] ' + status['StatusMessage'])
-            elif isinstance(status['StatusMessage'], list):
-                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+        (data, meta) = self.fetch(ticker+"~OHLCV", None, date, date_from, date_to, 'D',
+                                  only_data=False)
+        self._test_status_and_warn()
         return data
 
     def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
@@ -320,14 +335,9 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
-        (data, meta, status) = self.fetch(ticker+"~OHLC", None,
-                                          date, date_from, date_to, 'D',
-                                          raise_on_error=False, only_data=False)
-        if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], str):
-                warnings.warn('[DWE] ' + status['StatusMessage'])
-            elif isinstance(status['StatusMessage'], list):
-                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+        (data, meta) = self.fetch(ticker+"~OHLC", None, date, date_from, date_to, 'D',
+                                  only_data=False)
+        self._test_status_and_warn()
         return data
 
     def get_price(self, ticker, date=None, date_from=None, date_to=None):
@@ -340,18 +350,13 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
-        (data, meta, status) = self.fetch(ticker, None,
-                                          date, date_from, date_to, 'D',
-                                          raise_on_error=False, only_data=False)
-        if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], str):
-                warnings.warn('[DWE] ' + status['StatusMessage'])
-            elif isinstance(status['StatusMessage'], list):
-                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
+        (data, meta) = self.fetch(ticker, None, date, date_from, date_to, 'D',
+                                  only_data=False)
+        self._test_status_and_warn()
         return data
 
     #====================================================================================
-    def get_constituents(self, index_ticker, date=None, raise_on_error=True):
+    def get_constituents(self, index_ticker, date=None):
         """ Get a list of all constituents of a given index.
 
             index_ticker - Datastream ticker for index
@@ -366,20 +371,17 @@ class Datastream:
         raw = self.request(query)
 
         ### Parsing status
-        status = {'Source': str(raw['Source']),
-                  'StatusType': str(raw['StatusType']),
-                  'StatusCode': raw['StatusCode'],
-                  'StatusMessage': str(raw['StatusMessage']),
-                  'Request': str(raw['Instrument'])}
+        status = self.status(raw)
 
         ### Testing if no errors
         if status['StatusType'] != 'Connected':
-            if raise_on_error:
+            if self.raise_on_error:
                 raise DatastreamException('%s (error %i): %s --> "%s"' %
                                           (status['StatusType'], status['StatusCode'],
                                            status['StatusMessage'], status['Request']))
             else:
-                return pd.DataFrame(), status
+                self._test_status_and_warn()
+                return pd.DataFrame()
 
         ### Convert record to dict
         record = {x[0]:x[1] for x in raw['Fields'][0]}
@@ -392,8 +394,8 @@ class Datastream:
         num = len([x[0] for x in record if 'SYMBOL' in x])
 
         ### field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, id: field if id==1 else field+'_%i'%(id)
+        fld_name = lambda field, indx: field if indx==1 else field+'_%i'%(indx)
 
         res = pd.DataFrame({fld:[record[fld_name(fld,ind+1)] for ind in range(num)]
                             for fld in fields})
-        return (res, status)
+        return res
