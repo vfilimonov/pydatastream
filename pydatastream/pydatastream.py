@@ -249,6 +249,7 @@ class Datastream:
            The full list of data fields is available at http://dtg.tfn.com/.
         """
         request = ticker
+        ### TODO: if ticker is suds.sax.text.Text -> treat it as string
         if fields is not None:
             if isinstance(fields, str):
                 request += '~='+fields
@@ -295,6 +296,7 @@ class Datastream:
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
+        ### TODO: if ticker is suds.sax.text.Text -> treat it as string
         if isinstance(tickers, str):
             tickers = [tickers]
 
@@ -320,6 +322,7 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
+        ### TODO: if ticker is suds.sax.text.Text -> treat it as string
         (data, meta) = self.fetch(ticker+"~OHLCV", None, date, date_from, date_to, 'D',
                                   only_data=False)
         self._test_status_and_warn()
@@ -335,6 +338,7 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
+        ### TODO: if ticker is suds.sax.text.Text -> treat it as string
         (data, meta) = self.fetch(ticker+"~OHLC", None, date, date_from, date_to, 'D',
                                   only_data=False)
         self._test_status_and_warn()
@@ -350,6 +354,7 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
+        ### TODO: if ticker is suds.sax.text.Text -> treat it as string
         (data, meta) = self.fetch(ticker, None, date, date_from, date_to, 'D',
                                   only_data=False)
         self._test_status_and_warn()
