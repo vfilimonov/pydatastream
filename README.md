@@ -11,7 +11,7 @@ PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://
   - R: [RDatastream](https://github.com/fcocquemas/rdatastream) (in fact PyDatastream was inspired by RDatastream).
 * I am always open for suggestions, critique and bug reports.
 
-## Installation - prerequisites
+## Installation
 
 First, install prerequisites: `pandas` and `suds`. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
 
@@ -19,6 +19,10 @@ First, install prerequisites: `pandas` and `suds`. Both of packages can be insta
     pip install suds
 
 However, please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
+
+PyDatastream could be also installed using `pip`:
+
+	pip install https://github.com/vfilimonov/pydatastream/archive/master.zip
 
 ## Basic use
 
