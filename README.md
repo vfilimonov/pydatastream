@@ -20,9 +20,9 @@ First, install prerequisites: `pandas` and `suds`. Both of packages can be insta
 
 However, please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
 
-PyDatastream could be also installed using `pip`:
+PyDatastream could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream/0.2.0) using `pip`:
 
-	pip install https://github.com/vfilimonov/pydatastream/archive/master.zip
+	pip install pydatastream
 
 ## Basic use
 
