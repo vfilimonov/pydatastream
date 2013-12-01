@@ -272,6 +272,7 @@ class Datastream:
             data = pd.DataFrame()
 
         metadata = pd.DataFrame(metadata, index=[indx])
+        metadata = metadata[['Symbol','DisplayName','Currency','Frequency','Status']]
         return data, metadata
 
     @staticmethod
@@ -324,16 +325,18 @@ class Datastream:
         return request
 
     #====================================================================================
-    def fetch(self, ticker, fields=None, date=None,
+    def fetch(self, tickers, fields=None, date=None,
               date_from=None, date_to=None, freq='D', only_data=True):
         """Fetch data from TR DWE.
 
-           ticker  - ticker or symbol
+           tickers - ticker or list of tickers
            fields  - list of fields.
            date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
            only_data - if True then metadata will not be returned
+
+           NB! in case list of tickers is requested, pandas.Panel is returned.
 
            Some of available fields:
            P  - adjusted closing price
@@ -353,33 +356,28 @@ class Datastream:
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
-        if not isinstance(ticker, (str, unicode)):
-            raise DatastreamException(('Requested ticker should be in a string format. '
-                                       'In order to fetch multiple tickers at once '
-                                       'use "fetch_many" method.'))
-
-        query = self.construct_request(ticker, fields, date, date_from, date_to, freq)
+        query = self.construct_request(tickers, fields, date, date_from, date_to, freq)
         raw = self.request(query)
-        (data, meta) = self.parse_record(raw)
+
+        if isinstance(tickers, (str, unicode)) or len(tickers)==1:
+            (data, metadata) = self.parse_record(raw)
+        elif isinstance(tickers, list):
+            metadata = pd.DataFrame()
+            data = {}
+            for indx in range(len(tickers)):
+                (dat, meta) = self.parse_record(raw, indx)
+                data[tickers[indx]] = dat
+                metadata = metadata.append(meta, ignore_index=False)
+
+            data = pd.Panel(data).swapaxes('items', 'minor')
+        else:
+            raise DatastreamException(('First argument should be either ticker or '
+                                       'list of tickers'))
 
         if only_data:
             return data
         else:
-            return data, meta
-
-        if isinstance(tickers, (str, unicode)):
-            tickers = [tickers]
-
-        ### TODO: request multiple tickers
-        query = self.construct_request(tickers[0], fields, date, date_from, date_to, freq)
-        raw = self.request(query)
-        (data, meta) = self.parse_record(raw)
-
-        ### TODO: format metadata and return
-        if only_data:
-            return data
-        else:
-            return data, meta
+            return data, metadata
 
     #====================================================================================
     def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):

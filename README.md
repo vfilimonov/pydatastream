@@ -20,6 +20,7 @@ First, install prerequisites: `pandas` and `suds`. Both of packages can be insta
 
 However please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
 
+TODO!
 ....
 
 ## Basic use
@@ -80,6 +81,28 @@ If the Thomson Reuters mnemonic for specific fields are known, then more general
 
 fetchs the closing price, daily volume and market valuation for Apple Inc.
 
+### Requesting several tickers at once
+
+`fetch` can be used for requesting data for several tickers at once. In this case pandas.Panel (instead of pandas.DataFrame) will be returned.
+
+	res = DWE.fetch(['@AAPL','U:MMM'], fields=['P','MV','VO','PH'], date_from='2000-05-03')
+	print res['MV'].head()
+	
+For convenience major and minor axes of panel are swapped, so the result is mimicing pandas method for [fetching data from Yahoo! Finance](http://pandas.pydata.org/pandas-docs/dev/remote_data.html#yahoo-finance). Panel can be sliced to get the data for each ticker:
+
+	df = res.minor_xs('@AAPL')
+	print df.head()
+	
+As discussed below, it may be convenient to set up property `raise_on_error` to `False` when fetching data of several tickers. In this case if one or several tickers are misspecified, error will no be raised, but the missing data will be replaced with NaNs:
+
+	DWE.raise_on_error = False
+	res = DWE.fetch(['@AAPL','U:MMM','xxxxxx','S&PCOMP'], fields=['P','MV','VO','PH'], date_from='2000-05-03')
+	
+	print res['MV'].head()
+	print res['P'].head()
+	
+Please note, that in the last example the closing price (`P`) for `S&PCOMP` ticker was not retrieved. Due to Thomson Reuters Datastream mnenomics, field `P` is not available for indexes and field `PI` should be used instead.
+
 ### Constituents list for indices
 
 PyDatastream also has an interface for retrieving list of constituents of indices:
@@ -135,6 +158,8 @@ If request contains errors then normally `DatastreamException` will be raised an
 	DWE.raise_on_error = False
 	print DWE.parse_record(res[0])
 	print DWE.parse_record(res[1])
+
+`raise_on_error` can be useful for requests that contain several tickers. In this case data fields and/or tickers that can not be fetched will be replaced with NaNs in resulting pandas.Panel.
 
 For the debugging puroposes, Datastream class has `show_request` property, which, if set to `True`, makes standard methods to output the text string with request:
 
