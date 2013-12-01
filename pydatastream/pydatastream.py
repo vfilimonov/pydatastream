@@ -96,7 +96,6 @@ class Datastream:
                  It will be returned back in the response. The string should not be
                  longer than 256 characters.
         """
-
         if self.show_request:
             print 'Request:', query
 
@@ -149,11 +148,10 @@ class Datastream:
         """
         status = self.last_status
         if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], str):
+            if isinstance(status['StatusMessage'], (str, unicode)):
                 warnings.warn('[DWE] ' + status['StatusMessage'])
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
-
 
     def parse_record(self, record, inline_metadata=False):
         """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
@@ -191,10 +189,10 @@ class Datastream:
                 self.last_status['StatusMessage'] = error
                 self.last_status['StatusType'] = 'INSTERROR'
                 self._test_status_and_warn()
-                metadata = {}
+                metadata = {'Frequency':'','Currency':'','DisplayName':'','Symbol':''}
         else:
             ### Parsing metadata of the symbol
-            ### NB! currency might be returned as symbol thus "unicode" shoud be used
+            ### NB! currency might be returned as symbol thus "unicode" should be used
             metadata = {'Frequency': str(get_field('FREQUENCY')),
                         'Currency': unicode(get_field('CCY')),
                         'DisplayName': unicode(get_field('DISPNAME')),
@@ -217,7 +215,9 @@ class Datastream:
         if inline_metadata:
             for x in metadata:
                 data[x] = metadata[x]
-        return data, metadata
+            return data
+        else:
+            return data, pd.DataFrame(metadata, index=[0])
 
     @staticmethod
     def construct_request(ticker, fields=None, date=None,
@@ -248,7 +248,10 @@ class Datastream:
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
-        request = ticker
+        if isinstance(ticker, list):
+            request = ','.join(ticker)
+        else:
+            request = ticker
         if fields is not None:
             if isinstance(fields, (str, unicode)):
                 request += '~='+fields
@@ -266,16 +269,16 @@ class Datastream:
         return request
 
     #====================================================================================
-    def fetch(self, tickers, fields=None, date=None,
+    def fetch(self, ticker, fields=None, date=None,
               date_from=None, date_to=None, freq='D', only_data=True):
         """Fetch data from TR DWE.
 
-           tickers - ticker or symbol
+           ticker  - ticker or symbol
            fields  - list of fields.
            date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
-           only_data - if True then metadatawill not be returned
+           only_data - if True then metadata will not be returned
 
            Some of available fields:
            P  - adjusted closing price
@@ -295,6 +298,20 @@ class Datastream:
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
+        if not isinstance(ticker, (str, unicode)):
+            raise DatastreamException(('Requested ticker should be in a string format. '
+                                       'In order to fetch multiple tickers at once '
+                                       'use "fetch_many" method.'))
+
+        query = self.construct_request(ticker, fields, date, date_from, date_to, freq)
+        raw = self.request(query)
+        (data, meta) = self.parse_record(raw)
+
+        if only_data:
+            return data
+        else:
+            return data, meta
+
         if isinstance(tickers, (str, unicode)):
             tickers = [tickers]
 
@@ -394,8 +411,8 @@ class Datastream:
         num = len([x[0] for x in record if 'SYMBOL' in x])
 
         ### field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, indx: field if indx==1 else field+'_%i'%(indx)
+        fld_name = lambda field, indx: field if indx==0 else field+'_%i'%(indx+1)
 
-        res = pd.DataFrame({fld:[record[fld_name(fld,ind+1)] for ind in range(num)]
+        res = pd.DataFrame({fld:[record[fld_name(fld,ind)] for ind in range(num)]
                             for fld in fields})
         return res
