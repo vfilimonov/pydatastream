@@ -97,6 +97,8 @@ The module has a general-purpose function `request` that can be used for fetchin
 
 ### Using custom requests
 
+TODO!!!
+
 The Datastream request syntax is somewhat arcane but can be more powerful in certain cases. A [decent guide can be found here](http://dtg.tfn.com/data/DataStream.html). You can use this syntax directly with this package when your needs are more sophisticated.
 
 For instance, let's say I want the data from the previous example combined in a single dataframe.
@@ -104,7 +106,14 @@ For instance, let's say I want the data from the previous example combined in a 
     request1 <- "U:IBM,@MSFT~=P,MV~2007-06-04~:2009-06-04~M"
     dat <- ds(user, requests = request1)
     dat[["Data",1]]
+
+
+### Performing several requests at once
     
+[Thomson Dataworks Enterprise User Guide](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/documentation/user%20guide.pdf) suggests to optimize requests: very often it is quicker to make one bigger request than several smaller requests because of the relatively high transport overhead with web services.
+    
+TODO!!!
+
 We can run several such requests in a single API call.
 
     request2 <- "U:MMM~=P,PO~2007-09-01~:2007-09-12~D"
@@ -115,14 +124,34 @@ We can run several such requests in a single API call.
     dat["Data",]
 
 
-### Debugging 
+### Debugging and error handling
 
-For the debugging puroposes, Datastream class has `show_request` property, which, if set to `True` makes standard methods to output the text string with request:
+If request contains errors then normally `DatastreamException` will be raised and the error message from the DWE will be printed. To alter this behavior, one can use `raise_on_error` property of Datastream class. Being set to `False` it will force parser to ignore error messages and return empty pandas.Dataframe. For instance:
+
+	r1 = '@AAPL~OHLCV~2013-11-26~D'
+	r2 = '902172~OHLCV~wrong_request'
+	res = DWE.request_many([r1,r2])
+	
+	DWE.raise_on_error = False
+	print DWE.parse_record(res[0])
+	print DWE.parse_record(res[1])
+
+For the debugging puroposes, Datastream class has `show_request` property, which, if set to `True`, makes standard methods to output the text string with request:
 
 	DWE.show_request = True
 	data = DWE.fetch('@AAPL', ['P','MV','VO',], date_from='2000-01-01')
 
+Finally, method `status` could extract status info from the record with raw response:
+	
+	print DWE.status(res[1])
+
+and `last_status` property always contains status of the last parsed record:
+
+	print DWE.last_status
+
 ### Other useful tips with the Datastream syntax
+
+TODO!!!
 
 #### Get some reference information on a security with `"~XREF"`, including ISIN, industry, etc.
 

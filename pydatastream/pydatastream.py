@@ -111,6 +111,49 @@ class Datastream:
 
         return self.client.service.RequestRecord(self.userdata, rd, 0)
 
+    def request_many(self, queries, source='Datastream',
+                     fields=None, options=None, symbol_set=None, tag=None):
+        """General function to retrieve one record in raw format.
+
+           query - list of query strings for DWE system.
+           source - The name of datasource (default: "Datastream")
+           fields - Fields to be retrieved (used when the requester does not want all
+                    fields to be delivered).
+           options - Options for specific data source. Many of datasources do not require
+                     opptions string. Refer to the documentation of the specific
+                     datasource for allowed syntax.
+           symbol_set - The symbol set used inside the instrument (used for mapping
+                        identifiers within the request. Refer to the documentation for
+                        the details.
+           tag - User-defined cookie that can be used to match up requests and response.
+                 It will be returned back in the response. The string should not be
+                 longer than 256 characters.
+           NB! source, options, symbol_set and tag are assumed to be identical for all
+               requests in the list
+        """
+        if self.show_request:
+            print 'Requests:', queries
+
+        if not isinstance(queries, list):
+            queries = [queries]
+
+        req = self.client.factory.create('ArrayOfRequestData')
+        req.RequestData = []
+        for q in queries:
+            rd = self.client.factory.create('RequestData')
+            rd.Source = source
+            rd.Instrument = q
+            if fields is not None:
+                rd.Fields = self.client.factory.create('ArrayOfString')
+                rd.Fields.string = fields
+            rd.SymbolSet = symbol_set
+            rd.Options = options
+            rd.Tag = tag
+
+            req.RequestData.append(rd)
+
+        return self.client.service.RequestRecords(self.userdata, req, 0)[0]
+
     #====================================================================================
     def status(self, record=None):
         """Extract status from the retrieved data and save it as a property of an object.
