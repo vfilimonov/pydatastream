@@ -196,22 +196,18 @@ class Datastream:
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
 
-    def parse_record(self, record, inline_metadata=False):
+    def parse_record(self, raw, indx=0):
         """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
-           Returns tuple (data, metadata, status)
-
-           inline_metadata - if True, then info about symbol, currency, frequency and
-                             displayname will be included into dataframe with data.
+           Returns tuple (data, metadata)
 
            data - pandas.DataFrame with retrieved data.
-           metadata - disctionary with info about symbol, currency, frequency and
-                      displayname (if inline_metadata==True then this info is also
-                      duplicated as fields in data)
+           metadata - pandas.DataFrame with info about symbol, currency, frequency,
+                      displayname and status of given request
         """
-        get_field = lambda name: [x[1] for x in record['Fields'][0] if x[0] == name][0]
+        suffix = '' if indx==0 else '_%i'%(indx+1)
 
         ### Parsing status
-        status = self.status(record)
+        status = self.status(raw)
 
         ### Testing if no errors
         if status['StatusType'] != 'Connected':
@@ -223,8 +219,11 @@ class Datastream:
                 self._test_status_and_warn()
                 return pd.DataFrame(), {}
 
-        error = [str(x[1]) for x in record['Fields'][0] if 'INSTERROR' in x[0]]
-        if len(error)>0:
+        record = {x[0]:x[1] for x in raw['Fields'][0]}
+        get_field = lambda fldname: record[fldname+suffix]
+
+        try:
+            error = get_field('INSTERROR')
             if self.raise_on_error:
                 raise DatastreamException('Error: %s --> "%s"' %
                                           (error, status['Request']))
@@ -232,35 +231,48 @@ class Datastream:
                 self.last_status['StatusMessage'] = error
                 self.last_status['StatusType'] = 'INSTERROR'
                 self._test_status_and_warn()
-                metadata = {'Frequency':'','Currency':'','DisplayName':'','Symbol':''}
-        else:
+                metadata = {'Frequency':'','Currency':'','DisplayName':'',
+                            'Symbol':'', 'Status': error}
+        except KeyError:
             ### Parsing metadata of the symbol
             ### NB! currency might be returned as symbol thus "unicode" should be used
             metadata = {'Frequency': str(get_field('FREQUENCY')),
                         'Currency': unicode(get_field('CCY')),
                         'DisplayName': unicode(get_field('DISPNAME')),
-                        'Symbol': str(get_field('SYMBOL'))}
+                        'Symbol': str(get_field('SYMBOL')),
+                        'Status': 'OK'}
 
         ### Fields with data
-        meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE']
-        fields = [str(x[0]) for x in record['Fields'][0]
-                  if (x[0] not in meta_fields and 'INSTERROR' not in x[0])]
-
-        ### Check if we have a single value or a series
-        if isinstance(get_field('DATE'), dt.datetime):
-            data = pd.DataFrame({x:[get_field(x)] for x in fields},
-                                index=[get_field('DATE')])
+        if suffix=='':
+            fields = [str(x) for x in record if '_' not in x]
         else:
-            data = pd.DataFrame({x:get_field(x)[0] for x in fields},
-                                index=get_field('DATE')[0])
+            fields = [str(x) for x in record if suffix in x]
 
-        ### Incorporate metadata to dataframe if required
-        if inline_metadata:
-            for x in metadata:
-                data[x] = metadata[x]
-            return data
+        ### Filter metadata
+        meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
+        fields = [x.replace(suffix,'') for x in fields
+                  if not any([y in x for y in meta_fields])]
+
+        if 'DATE'+suffix in record:
+            date = record['DATE'+suffix]
+        elif 'DATE' in record:
+            date = record['DATE']
         else:
-            return data, pd.DataFrame(metadata, index=[0])
+            date = None
+
+        if len(fields)>0 and date is not None:
+            ### Check if we have a single value or a series
+            if isinstance(date, dt.datetime):
+                data = pd.DataFrame({x:[get_field(x)] for x in fields},
+                                    index=[date])
+            else:
+                data = pd.DataFrame({x:get_field(x)[0] for x in fields},
+                                    index=date[0])
+        else:
+            data = pd.DataFrame()
+
+        metadata = pd.DataFrame(metadata, index=[indx])
+        return data, metadata
 
     @staticmethod
     def construct_request(ticker, fields=None, date=None,
@@ -382,7 +394,6 @@ class Datastream:
         """
         (data, meta) = self.fetch(ticker+"~OHLCV", None, date, date_from, date_to, 'D',
                                   only_data=False)
-        self._test_status_and_warn()
         return data
 
     def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
@@ -397,7 +408,6 @@ class Datastream:
         """
         (data, meta) = self.fetch(ticker+"~OHLC", None, date, date_from, date_to, 'D',
                                   only_data=False)
-        self._test_status_and_warn()
         return data
 
     def get_price(self, ticker, date=None, date_from=None, date_to=None):
@@ -412,7 +422,6 @@ class Datastream:
         """
         (data, meta) = self.fetch(ticker, None, date, date_from, date_to, 'D',
                                   only_data=False)
-        self._test_status_and_warn()
         return data
 
     #====================================================================================
