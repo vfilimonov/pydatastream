@@ -196,6 +196,12 @@ class Datastream:
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
 
+    #====================================================================================
+    @staticmethod
+    def extract_data(raw):
+        """Extracts data from the raw response and returns it as a dictionary."""
+        return {x[0]: x[1] for x in raw['Fields'][0]}
+
     def parse_record(self, raw, indx=0):
         """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
            Returns tuple (data, metadata)
@@ -219,7 +225,7 @@ class Datastream:
                 self._test_status_and_warn()
                 return pd.DataFrame(), {}
 
-        record = {x[0]:x[1] for x in raw['Fields'][0]}
+        record = self.extract_data(raw)
         get_field = lambda fldname: record[fldname+suffix]
 
         try:
@@ -275,6 +281,7 @@ class Datastream:
         metadata = metadata[['Symbol','DisplayName','Currency','Frequency','Status']]
         return data, metadata
 
+    #====================================================================================
     @staticmethod
     def construct_request(ticker, fields=None, date=None,
                           date_from=None, date_to=None, freq=None):
@@ -451,7 +458,7 @@ class Datastream:
                 return pd.DataFrame()
 
         ### Convert record to dict
-        record = {x[0]:x[1] for x in raw['Fields'][0]}
+        record = self.extract_data(raw)
 
         ### All fields that are available
         fields = [x for x in record if '_' not in x]
