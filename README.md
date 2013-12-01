@@ -11,17 +11,14 @@ PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://
   - R: [RDatastream](https://github.com/fcocquemas/rdatastream) (in fact PyDatastream was inspired by RDatastream).
 * I am always open for suggestions, critique and bug reports.
 
-## Installation
+## Installation - prerequisites
 
 First, install prerequisites: `pandas` and `suds`. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
 
     pip install pandas
     pip install suds
 
-However please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
-
-TODO!
-....
+However, please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
 
 ## Basic use
 
@@ -116,36 +113,63 @@ As an option, the list for a specific date can be requested as well:
 
 ## Advanced use
 
-The module has a general-purpose function `request` that can be used for fetching data with custom requests.
-
 ### Using custom requests
 
-TODO!!!
+The module has a general-purpose function `request` that can be used for fetching data with custom requests. This function returns raw data in format of `suds` package. Data can be used directly or parsed later with the `parse_record` method:
 
-The Datastream request syntax is somewhat arcane but can be more powerful in certain cases. A [decent guide can be found here](http://dtg.tfn.com/data/DataStream.html). You can use this syntax directly with this package when your needs are more sophisticated.
+	raw = DWE.request('@AAPL~=P,MV,VO,PH~2013-01-01~D')
+	print raw['StatusType']
+	print raw['StatusCode']
 
-For instance, let's say I want the data from the previous example combined in a single dataframe.
+	data = DWE.extract_data(raw)
+	print data['CCY']
+	print data['MV']
 
-    request1 <- "U:IBM,@MSFT~=P,MV~2007-06-04~:2009-06-04~M"
-    dat <- ds(user, requests = request1)
-    dat[["Data",1]]
+Information about mnemonics and syntax of the request string can be found in [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html).
 
+### Some useful tips with the Datastream syntax
+
+Examples are taken from [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) and [description of rDatastream package](https://github.com/fcocquemas/rdatastream).
+
+#### Get performance information of a particular stock
+
+	res = DWE.fetch('@AAPL~PERF', date_from='2011-09-01')
+	print res.head()
+
+#### Get some reference information on a security with `"~XREF"`, including ISIN, industry, etc.
+
+	res = DWE.request('U:IBM~XREF')
+	print DWE.extract_data(res)
+    
+#### Get some static items like NAME, ISIN with `"~REP"`
+
+	res = DWE.request('U:IBM~=NAME,ISIN~REP')
+	print DWE.extract_data(res)
+	
+#### Convert the currency e.g. to Euro with `"~~EUR"`
+
+    res = DWE.fetch('U:IBM(P)~~EUR', date_from='2013-09-01')
+    print res.head()
+    
+#### Calculate moving average on 20 days
+
+	res = DWE.fetch('MAV#(U:IBM,20D)', date_from='2013-09-01')
+	print res.head()
 
 ### Performing several requests at once
     
 [Thomson Dataworks Enterprise User Guide](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/documentation/user%20guide.pdf) suggests to optimize requests: very often it is quicker to make one bigger request than several smaller requests because of the relatively high transport overhead with web services.
-    
-TODO!!!
 
-We can run several such requests in a single API call.
+PyDatastream allows to fetch several requests in a single API call:
 
-    request2 <- "U:MMM~=P,PO~2007-09-01~:2007-09-12~D"
-    request3 <- "906187~2008-01-01~:2008-10-02~M"
-    request4 <- "PCH#(U:BAC(MV))~2008-01-01~:2008-10-02~M"
-    requests <- c(request1, request2, request3, request4)
-    dat <- ds(user, requests = requests)
-    dat["Data",]
+	r1 = '@AAPL~OHLCV~2013-11-26~D'
+	r2 = 'U:MMM~=P,MV,PO~2013-11-26~D'
+	res = DWE.request_many([r1,r2])
 
+	print DWE.parse_record(res[0])
+	print DWE.parse_record(res[1])
+
+Please note, that due to possible specifics of requests, results of them should be parsed separately, similar to the example above.
 
 ### Debugging and error handling
 
@@ -173,30 +197,6 @@ Finally, method `status` could extract status info from the record with raw resp
 and `last_status` property always contains status of the last parsed record:
 
 	print DWE.last_status
-
-### Other useful tips with the Datastream syntax
-
-TODO!!!
-
-#### Get some reference information on a security with `"~XREF"`, including ISIN, industry, etc.
-
-    dat <- ds(user, requests = "U:IBM~XREF") 
-    dat[["Data",1]]
-    
-#### Get some static items like NAME, ISIN with `"~REP"`
-
-    dat <- ds(user, requests = "U:IBM~=NAME,ISIN~REP") 
-    dat[["Data",1]]
-
-#### Convert the currency e.g. to Euro with `"~~EUR"`
-
-    dat <- ds(user, requests = "U:IBM(P)~~EUR~2007-09-01~:2009-09-01~D") 
-    dat[["Data",1]]
-    
-#### Use Datastream expressions, e.g. for a moving average on 20 days
-
-    dat <- ds(user, requests = "MAV#(U:IBM,20D)~2007-09-01~:2009-09-01~D") 
-    dat[["Data",1]]
 
 ## Resources
 
