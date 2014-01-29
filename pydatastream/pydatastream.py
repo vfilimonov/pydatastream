@@ -3,6 +3,12 @@ import datetime as dt
 import warnings
 from suds.client import Client
 
+### TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
+###       datatypes for each value (thus response is ~2 times smaller)
+### TODO: Constituesnts: L___~LIST~REP and not ~XREF (deprecated)
+### TODO: ~REP for static requests
+### TODO: Check "datatype search" for useful requests
+
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
 
 

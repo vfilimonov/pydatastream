@@ -210,6 +210,6 @@ For building custom Datastream requests, useful guidelines are given on this som
 
 If you have access codes for the Datastream Extranet, you can use the [Datastream Navigator](http://product.datastream.com/navigator/) to look up codes and data types.
 
-## Licence
+## License
 
-PyDatastream is released under the MIT licence.
+PyDatastream is released under the MIT license.
