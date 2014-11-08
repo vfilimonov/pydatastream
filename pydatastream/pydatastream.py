@@ -436,12 +436,14 @@ class Datastream:
         return data
 
     #====================================================================================
-    def get_constituents(self, index_ticker, date=None):
+    def get_constituents(self, index_ticker, date=None, return_raw=False):
         """ Get a list of all constituents of a given index.
 
             index_ticker - Datastream ticker for index
             date         - date for which list should be retrieved (if None then
                            list of present constituents is retrieved)
+            return_raw   - Method does not parse the response to pd.DataFrame format
+                           and returns the raw dict (for debugging purposes)
         """
         if date is not None:
             str_date = pd.to_datetime(date).strftime('%m%y')
@@ -465,6 +467,8 @@ class Datastream:
 
         ### Convert record to dict
         record = self.extract_data(raw)
+        if return_raw:
+            return record
 
         ### All fields that are available
         fields = [x for x in record if '_' not in x]
@@ -476,6 +480,9 @@ class Datastream:
         ### field naming 'CCY', 'CCY_2', 'CCY_3', ...
         fld_name = lambda field, indx: field if indx==0 else field+'_%i'%(indx+1)
 
-        res = pd.DataFrame({fld:[record[fld_name(fld,ind)] for ind in range(num)]
+        ### Construct pd.DataFrame
+        res = pd.DataFrame({fld:[record[fld_name(fld,ind)]
+                                 if fld_name(fld,ind) in record else ''
+                                 for ind in range(num)]
                             for fld in fields})
         return res

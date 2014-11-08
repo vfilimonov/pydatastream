@@ -108,12 +108,12 @@ Please note, that in the last example the closing price (`P`) for `S&PCOMP` tick
 
 PyDatastream also has an interface for retrieving list of constituents of indices:
 
-	(res, status) = DWE.get_constituents('S&PCOMP')
+	res = DWE.get_constituents('S&PCOMP')
 	print res.ix[0]
 
 As an option, the list for a specific date can be requested as well:
 
-	(res, status) = DWE.get_constituents('S&PCOMP', '1-sept-2013')
+	res = DWE.get_constituents('S&PCOMP', '1-sept-2013')
 
 ## Advanced use
 
