@@ -54,6 +54,9 @@ class Datastream:
         print ''
         print 'Dataworks Enterprise documentation:'
         print 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/'
+        print ''
+        print 'Thomson Reuters Datastream support:'
+        print 'https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y'
 
     def version(self):
         """Return version of the TR DWE."""
