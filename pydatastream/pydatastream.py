@@ -3,9 +3,9 @@ import datetime as dt
 import warnings
 from suds.client import Client
 
-### TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
-###       datatypes for each value (thus response is ~2 times smaller)
-### TODO: Check "datatype search" for useful requests
+# TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
+#       datatypes for each value (thus response is ~2 times smaller)
+# TODO: Check "datatype search" for useful requests
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
 
@@ -27,18 +27,18 @@ class Datastream:
                                     # either empty dataframe or partially retrieved
                                     # data will be returned
 
-        ### Trying to connect
+        # Trying to connect
         try:
             self.ver = self.version()
         except:
             raise DatastreamException('Can not retrieve the data')
 
-        ### Creating UserData object
+        # Creating UserData object
         self.userdata = self.client.factory.create('UserData')
         self.userdata.Username = username
         self.userdata.Password = password
 
-        ### Check available data sources
+        # Check available data sources
         if 'Datastream' not in self.sources():
             warnings.warn("'Datastream' source is not available for given subscription!")
 
@@ -64,7 +64,7 @@ class Datastream:
     def system_info(self):
         """Return system information."""
         res = self.client.service.SystemInfo()
-        res = {str(x[0]):x[1] for x in res[0]}
+        res = {str(x[0]): x[1] for x in res[0]}
 
         to_str = lambda arr: '.'.join([str(x) for x in arr[0]])
         res['OSVersion'] = to_str(res['OSVersion'])
@@ -161,7 +161,7 @@ class Datastream:
 
         return self.client.service.RequestRecords(self.userdata, req, 0)[0]
 
-    #====================================================================================
+    #################################################################################
     def status(self, record=None):
         """Extract status from the retrieved data and save it as a property of an object.
            If record with data is not specified then the status of previous operation is
@@ -203,7 +203,7 @@ class Datastream:
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
 
-    #====================================================================================
+    #################################################################################
     @staticmethod
     def extract_data(raw):
         """Extracts data from the raw response and returns it as a dictionary."""
@@ -217,12 +217,12 @@ class Datastream:
            metadata - pandas.DataFrame with info about symbol, currency, frequency,
                       displayname and status of given request
         """
-        suffix = '' if indx==0 else '_%i'%(indx+1)
+        suffix = '' if indx == 0 else '_%i' % (indx+1)
 
-        ### Parsing status
+        # Parsing status
         status = self.status(raw)
 
-        ### Testing if no errors
+        # Testing if no errors
         if status['StatusType'] != 'Connected':
             if self.raise_on_error:
                 raise DatastreamException('%s (error %i): %s --> "%s"' %
@@ -244,26 +244,26 @@ class Datastream:
                 self.last_status['StatusMessage'] = error
                 self.last_status['StatusType'] = 'INSTERROR'
                 self._test_status_and_warn()
-                metadata = {'Frequency':'','Currency':'','DisplayName':'',
-                            'Symbol':'', 'Status': error}
+                metadata = {'Frequency': '', 'Currency': '', 'DisplayName': '',
+                            'Symbol': '', 'Status': error}
         except KeyError:
-            ### Parsing metadata of the symbol
-            ### NB! currency might be returned as symbol thus "unicode" should be used
+            # Parsing metadata of the symbol
+            # NB! currency might be returned as symbol thus "unicode" should be used
             metadata = {'Frequency': str(get_field('FREQUENCY')),
                         'Currency': unicode(get_field('CCY')),
                         'DisplayName': unicode(get_field('DISPNAME')),
                         'Symbol': str(get_field('SYMBOL')),
                         'Status': 'OK'}
 
-        ### Fields with data
-        if suffix=='':
+        # Fields with data
+        if suffix == '':
             fields = [str(x) for x in record if '_' not in x]
         else:
             fields = [str(x) for x in record if suffix in x]
 
-        ### Filter metadata
+        # Filter metadata
         meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
-        fields = [x.replace(suffix,'') for x in fields
+        fields = [x.replace(suffix, '') for x in fields
                   if not any([y in x for y in meta_fields])]
 
         if 'DATE'+suffix in record:
@@ -273,19 +273,19 @@ class Datastream:
         else:
             date = None
 
-        if len(fields)>0 and date is not None:
-            ### Check if we have a single value or a series
+        if len(fields) > 0 and date is not None:
+            # Check if we have a single value or a series
             if isinstance(date, dt.datetime):
-                data = pd.DataFrame({x:[get_field(x)] for x in fields},
+                data = pd.DataFrame({x: [get_field(x)] for x in fields},
                                     index=[date])
             else:
-                data = pd.DataFrame({x:get_field(x)[0] for x in fields},
+                data = pd.DataFrame({x: get_field(x)[0] for x in fields},
                                     index=date[0])
         else:
             data = pd.DataFrame()
 
         metadata = pd.DataFrame(metadata, index=[indx])
-        metadata = metadata[['Symbol','DisplayName','Currency','Frequency','Status']]
+        metadata = metadata[['Symbol', 'DisplayName', 'Currency', 'Frequency', 'Status']]
         return data, metadata
 
     def parse_record_static(self, raw):
@@ -296,10 +296,10 @@ class Datastream:
            metadata - pandas.DataFrame with info about symbol, currency, frequency,
                       displayname and status of given request
         """
-        ### Parsing status
+        # Parsing status
         status = self.status(raw)
 
-        ### Testing if no errors
+        # Testing if no errors
         if status['StatusType'] != 'Connected':
             if self.raise_on_error:
                 raise DatastreamException('%s (error %i): %s --> "%s"' %
@@ -309,7 +309,7 @@ class Datastream:
                 self._test_status_and_warn()
                 return pd.DataFrame(), {}
 
-        ### Convert record to dict
+        # Convert record to dict
         record = self.extract_data(raw)
 
         try:
@@ -323,27 +323,27 @@ class Datastream:
                 self._test_status_and_warn()
                 return pd.DataFrame(), {'Status': error, 'Date': None}
         except KeyError:
-            metadata = {'Status': 'OK', 'Date': None}
+            metadata = {'Status': 'OK', 'Date': ''}
 
-        ### All fields that are available
+        # All fields that are available
         fields = [x for x in record if '_' not in x]
         metadata['Date'] = record['DATE']
         fields.remove('DATE')
 
-        ### Number of elements
+        # Number of elements
         num = len([x[0] for x in record if 'SYMBOL' in x])
 
-        ### field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, indx: field if indx == 0 else field+'_%i'%(indx+1)
+        # field naming 'CCY', 'CCY_2', 'CCY_3', ...
+        fld_name = lambda field, indx: field if indx == 0 else field + '_%i' % (indx+1)
 
-        ### Construct pd.DataFrame
-        res = pd.DataFrame({fld:[record[fld_name(fld, ind)]
-                                 if fld_name(fld, ind) in record else ''
-                                 for ind in range(num)]
+        # Construct pd.DataFrame
+        res = pd.DataFrame({fld: [record[fld_name(fld, ind)]
+                                  if fld_name(fld, ind) in record else ''
+                                  for ind in range(num)]
                             for fld in fields})
         return res, metadata
 
-    #====================================================================================
+    #################################################################################
     @staticmethod
     def construct_request(ticker, fields=None, date=None,
                           date_from=None, date_to=None, freq=None):
@@ -380,21 +380,21 @@ class Datastream:
             request = ticker
         if fields is not None:
             if isinstance(fields, (str, unicode)):
-                request += '~='+fields
-            elif isinstance(fields, list) and len(fields)>0:
-                request += '~='+','.join(fields)
+                request += '~=' + fields
+            elif isinstance(fields, list) and len(fields) > 0:
+                request += '~=' + ','.join(fields)
         if date is not None:
-            request += '~@'+pd.to_datetime(date).strftime('%Y-%m-%d')
+            request += '~@' + pd.to_datetime(date).strftime('%Y-%m-%d')
         else:
             if date_from is not None:
-                request += '~'+pd.to_datetime(date_from).strftime('%Y-%m-%d')
+                request += '~' + pd.to_datetime(date_from).strftime('%Y-%m-%d')
             if date_to is not None:
-                request += '~:'+pd.to_datetime(date_to).strftime('%Y-%m-%d')
+                request += '~:' + pd.to_datetime(date_to).strftime('%Y-%m-%d')
         if freq is not None:
-            request += '~'+freq
+            request += '~' + freq
         return request
 
-    #====================================================================================
+    #################################################################################
     def fetch(self, tickers, fields=None, date=None, static=False,
               date_from=None, date_to=None, freq='D', only_data=True):
         """Fetch data from TR DWE.
@@ -436,14 +436,14 @@ class Datastream:
         raw = self.request(query)
 
         if static:
-            (data, metadata) = self.parse_record_static(raw)
-        elif isinstance(tickers, (str, unicode)) or len(tickers)==1:
-            (data, metadata) = self.parse_record(raw)
+            data, metadata = self.parse_record_static(raw)
+        elif isinstance(tickers, (str, unicode)) or len(tickers) == 1:
+            data, metadata = self.parse_record(raw)
         elif isinstance(tickers, list):
             metadata = pd.DataFrame()
             data = {}
             for indx in range(len(tickers)):
-                (dat, meta) = self.parse_record(raw, indx)
+                dat, meta = self.parse_record(raw, indx)
                 data[tickers[indx]] = dat
                 metadata = metadata.append(meta, ignore_index=False)
 
@@ -457,7 +457,7 @@ class Datastream:
         else:
             return data, metadata
 
-    #====================================================================================
+    #################################################################################
     def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):
         """Get Open, High, Low, Close prices and daily Volume for a given ticker.
 
@@ -468,8 +468,8 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
-        (data, meta) = self.fetch(ticker+"~OHLCV", None, date, date_from, date_to, 'D',
-                                  only_data=False)
+        data, meta = self.fetch(ticker + "~OHLCV", None, date,
+                                date_from, date_to, 'D', only_data=False)
         return data
 
     def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
@@ -482,8 +482,8 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
-        (data, meta) = self.fetch(ticker+"~OHLC", None, date, date_from, date_to, 'D',
-                                  only_data=False)
+        data, meta = self.fetch(ticker + "~OHLC", None, date,
+                                date_from, date_to, 'D', only_data=False)
         return data
 
     def get_price(self, ticker, date=None, date_from=None, date_to=None):
@@ -496,11 +496,11 @@ class Datastream:
            Returns pandas.Dataframe with data. If error occurs, then it is printed as
            a warning.
         """
-        (data, meta) = self.fetch(ticker, None, date, date_from, date_to, 'D',
-                                  only_data=False)
+        data, meta = self.fetch(ticker, None, date,
+                                date_from, date_to, 'D', only_data=False)
         return data
 
-    #====================================================================================
+    #################################################################################
     def get_constituents(self, index_ticker, date=None, return_raw=False):
         """ Get a list of all constituents of a given index.
 
@@ -514,9 +514,9 @@ class Datastream:
             str_date = pd.to_datetime(date).strftime('%m%y')
         else:
             str_date = ''
-        ### Note: ~XREF is equal to the following large request
-        ### ~REP~=DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,INDXFS,INDXL,
-        ###       INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE
+        # Note: ~XREF is equal to the following large request
+        # ~REP~=DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,INDXFS,INDXL,
+        #       INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE
         query = 'L' + index_ticker + str_date + '~XREF'
         raw = self.request(query)
 
