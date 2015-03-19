@@ -5,8 +5,6 @@ from suds.client import Client
 
 ### TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
 ###       datatypes for each value (thus response is ~2 times smaller)
-### TODO: Constituesnts: L___~LIST~REP and not ~XREF (deprecated)
-### TODO: ~REP for static requests
 ### TODO: Check "datatype search" for useful requests
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
@@ -356,6 +354,7 @@ class Datastream:
            date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
+                     Use here 'REP' for static requests
 
            Some of available fields:
            P  - adjusted closing price
@@ -396,13 +395,15 @@ class Datastream:
         return request
 
     #====================================================================================
-    def fetch(self, tickers, fields=None, date=None,
+    def fetch(self, tickers, fields=None, date=None, static=False,
               date_from=None, date_to=None, freq='D', only_data=True):
         """Fetch data from TR DWE.
 
            tickers - ticker or list of tickers
            fields  - list of fields.
            date    - date for a single-date query
+           static  - if True "static" request is created (i.e. not a series).
+                     In this case 'date_from', 'date_to' and 'freq' are ignored
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
            only_data - if True then metadata will not be returned
@@ -427,10 +428,16 @@ class Datastream:
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
-        query = self.construct_request(tickers, fields, date, date_from, date_to, freq)
+        if static:
+            query = self.construct_request(tickers, fields, date, freq='REP')
+        else:
+            query = self.construct_request(tickers, fields, date, date_from, date_to, freq)
+
         raw = self.request(query)
 
-        if isinstance(tickers, (str, unicode)) or len(tickers)==1:
+        if static:
+            (data, metadata) = self.parse_record_static(raw)
+        elif isinstance(tickers, (str, unicode)) or len(tickers)==1:
             (data, metadata) = self.parse_record(raw)
         elif isinstance(tickers, list):
             metadata = pd.DataFrame()
