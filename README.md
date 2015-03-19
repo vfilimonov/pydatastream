@@ -208,7 +208,12 @@ It is recommended that you read the [Thomson Dataworks Enterprise User Guide](ht
 
 For building custom Datastream requests, useful guidelines are given on this somewhat old [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) webpage.
 
-If you have access codes for the Datastream Extranet, you can use the [Datastream Navigator](http://product.datastream.com/navigator/) to look up codes and data types.
+If you have access codes for the Datastream Extranet, you can use the [Datastream Navigator](http://product.datastream.com/navigator/) to look up codes and data types. Also if you're a client of Thomson Reuters, you can get support [at the official webpage](https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y).
+
+Finally, all these links could be printed in your terminal by calling
+
+	DWE.info()
+
 
 ## License
 
