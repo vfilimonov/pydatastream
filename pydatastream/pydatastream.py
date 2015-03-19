@@ -507,40 +507,14 @@ class Datastream:
             str_date = pd.to_datetime(date).strftime('%m%y')
         else:
             str_date = ''
+        ### Note: ~XREF is equal to the following large request
+        ### ~REP~=DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,INDXFS,INDXL,
+        ###       INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE
         query = 'L' + index_ticker + str_date + '~XREF'
         raw = self.request(query)
 
-        ### Parsing status
-        status = self.status(raw)
-
-        ### Testing if no errors
-        if status['StatusType'] != 'Connected':
-            if self.raise_on_error:
-                raise DatastreamException('%s (error %i): %s --> "%s"' %
-                                          (status['StatusType'], status['StatusCode'],
-                                           status['StatusMessage'], status['Request']))
-            else:
-                self._test_status_and_warn()
-                return pd.DataFrame()
-
-        ### Convert record to dict
-        record = self.extract_data(raw)
         if return_raw:
-            return record
+            return self.extract_data(raw)
 
-        ### All fields that are available
-        fields = [x for x in record if '_' not in x]
-        fields.remove('DATE')
-
-        ### Number of elements
-        num = len([x[0] for x in record if 'SYMBOL' in x])
-
-        ### field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, indx: field if indx==0 else field+'_%i'%(indx+1)
-
-        ### Construct pd.DataFrame
-        res = pd.DataFrame({fld:[record[fld_name(fld,ind)]
-                                 if fld_name(fld,ind) in record else ''
-                                 for ind in range(num)]
-                            for fld in fields})
+        res, metadata = self.parse_record_static(raw)
         return res
