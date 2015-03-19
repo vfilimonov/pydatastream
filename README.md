@@ -20,7 +20,7 @@ First, install prerequisites: `pandas` and `suds`. Both of packages can be insta
 
 However, please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
 
-PyDatastream could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream/0.2.0) using `pip`:
+The latest version of PyDatastream is always available at [GitHub](https://github.com/vfilimonov/pydatastream) at the `master` branch. Last relese could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream) using `pip`:
 
 	pip install pydatastream
 
@@ -115,6 +115,22 @@ As an option, the list for a specific date can be requested as well:
 
 	res = DWE.get_constituents('S&PCOMP', '1-sept-2013')
 
+### Static requests
+
+List of constituents of indices, that were considered above, is an example of static request, i.e. a request that does not retrive a time-series, but a single snapshot with the data. 
+
+On the API level static requests are marked with "~REP" suffix. Within the PyDatastream library static requests could be called using the same `fetch()` function as time series by providing an argument `static=True`.
+
+For example, this request retrieves names, ISINs and identifiers for primary exchange (ISINID) for various tickers of BASF corporation:
+
+	res = DWE.fetch(['D:BAS','D:BASX','HN:BAS','I:BAF','BFA','@BFFAF','S:BAS'], 
+                    ['ISIN', 'ISINID', 'NAME'], static=True)
+
+Another example of use of static requests is a cross-section of time-series. The following example retrieves an actual price, market capitalization and daily volume for same companies:
+
+	res = DWE.fetch(['D:BAS','D:BASX','HN:BAS','I:BAF','BFA','@BFFAF','S:BAS'], 
+                    ['P', 'MV', 'VO'], static=True)
+
 ## Advanced use
 
 ### Using custom requests
@@ -133,7 +149,7 @@ Information about mnemonics and syntax of the request string can be found in [Th
 
 ### Some useful tips with the Datastream syntax
 
-Examples are taken from [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) and [description of rDatastream package](https://github.com/fcocquemas/rdatastream).
+Some of examples are taken from [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) and [description of rDatastream package](https://github.com/fcocquemas/rdatastream).
 
 #### Get performance information of a particular stock
 
@@ -143,11 +159,6 @@ Examples are taken from [Thomson Financial Network](http://dtg.tfn.com/data/Data
 #### Get some reference information on a security with `"~XREF"`, including ISIN, industry, etc.
 
 	res = DWE.request('U:IBM~XREF')
-	print DWE.extract_data(res)
-    
-#### Get some static items like NAME, ISIN with `"~REP"`
-
-	res = DWE.request('U:IBM~=NAME,ISIN~REP')
 	print DWE.extract_data(res)
 	
 #### Convert the currency e.g. to Euro with `"~~EUR"`
@@ -210,7 +221,7 @@ For building custom Datastream requests, useful guidelines are given on this som
 
 If you have access codes for the Datastream Extranet, you can use the [Datastream Navigator](http://product.datastream.com/navigator/) to look up codes and data types. Also if you're a client of Thomson Reuters, you can get support [at the official webpage](https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y).
 
-Finally, all these links could be printed in your terminal by calling
+Finally, all these links could be printed in your terminal or iPython notebook by calling
 
 	DWE.info()
 
