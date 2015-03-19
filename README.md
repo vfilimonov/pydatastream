@@ -11,7 +11,7 @@ PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://
   - R: [RDatastream](https://github.com/fcocquemas/rdatastream) (in fact PyDatastream was inspired by RDatastream).
 * I am always open for suggestions, critique and bug reports.
 
-## Installation - prerequisites
+## Installation
 
 First, install prerequisites: `pandas` and `suds`. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
 
@@ -19,6 +19,10 @@ First, install prerequisites: `pandas` and `suds`. Both of packages can be insta
     pip install suds
 
 However, please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
+
+PyDatastream could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream/0.2.0) using `pip`:
+
+	pip install pydatastream
 
 ## Basic use
 
@@ -104,12 +108,12 @@ Please note, that in the last example the closing price (`P`) for `S&PCOMP` tick
 
 PyDatastream also has an interface for retrieving list of constituents of indices:
 
-	(res, status) = DWE.get_constituents('S&PCOMP')
+	res = DWE.get_constituents('S&PCOMP')
 	print res.ix[0]
 
 As an option, the list for a specific date can be requested as well:
 
-	(res, status) = DWE.get_constituents('S&PCOMP', '1-sept-2013')
+	res = DWE.get_constituents('S&PCOMP', '1-sept-2013')
 
 ## Advanced use
 
@@ -206,6 +210,6 @@ For building custom Datastream requests, useful guidelines are given on this som
 
 If you have access codes for the Datastream Extranet, you can use the [Datastream Navigator](http://product.datastream.com/navigator/) to look up codes and data types.
 
-## Licence
+## License
 
-PyDatastream is released under the MIT licence.
+PyDatastream is released under the MIT license.
