@@ -5,7 +5,6 @@ from suds.client import Client
 
 # TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
 #       datatypes for each value (thus response is ~2 times smaller)
-# TODO: Check "datatype search" for useful requests
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
 
@@ -395,18 +394,18 @@ class Datastream:
         return request
 
     #################################################################################
-    def fetch(self, tickers, fields=None, date=None, static=False,
-              date_from=None, date_to=None, freq='D', only_data=True):
+    def fetch(self, tickers, fields=None, date=None, date_from=None, date_to=None,
+              freq='D', only_data=True, static=False):
         """Fetch data from TR DWE.
 
            tickers - ticker or list of tickers
            fields  - list of fields.
            date    - date for a single-date query
-           static  - if True "static" request is created (i.e. not a series).
-                     In this case 'date_from', 'date_to' and 'freq' are ignored
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
            only_data - if True then metadata will not be returned
+           static  - if True "static" request is created (i.e. not a series).
+                     In this case 'date_from', 'date_to' and 'freq' are ignored
 
            NB! in case list of tickers is requested, pandas.Panel is returned.
 

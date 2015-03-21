@@ -1,10 +1,10 @@
 from distutils.core import setup
 
 setup(name = 'PyDatastream',
-      version = '0.3.0',
+      version = '0.3.1',
       description = 'Python interface to the Thomson Reuters Dataworks Enterprise (Datastream) API',
       url = 'http://github.com/vfilimonov/pydatastream',
-      download_url = 'https://github.com/vfilimonov/pydatastream/archive/v0.3.0.zip', 
+      download_url = 'https://github.com/vfilimonov/pydatastream/archive/v0.3.1.zip', 
       author = 'Vladimir Filimonov',
       author_email = 'vfilimonov@ethz.ch',
       license = 'MIT License',
