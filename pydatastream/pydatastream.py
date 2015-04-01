@@ -5,6 +5,7 @@ from suds.client import Client
 
 # TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
 #       datatypes for each value (thus response is ~2 times smaller)
+# TODO: QTEALL: all available active tickers for the company (e.g. "U:IBM~=QTEALL~REP")
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
 
