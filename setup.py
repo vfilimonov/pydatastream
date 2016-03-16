@@ -15,7 +15,7 @@ setup(name = 'PyDatastream',
       author_email = 'vfilimonov@ethz.ch',
       license = 'MIT License',
       packages = ['pydatastream'],
-      install_requires = install_requires_list
+      install_requires = install_requires_list,
       classifiers=[
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
