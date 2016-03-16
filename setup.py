@@ -4,7 +4,7 @@ import sys
 if sys.version_info.major < 3:
     install_requires_list = ['suds', 'pandas']
 else:
-	install_requires_list = ['suds-py3', 'pandas']
+    install_requires_list = ['suds-py3', 'pandas']
 
 setup(name = 'PyDatastream',
       version = '0.3.1',
