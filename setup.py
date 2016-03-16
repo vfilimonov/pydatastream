@@ -7,12 +7,12 @@ else:
     install_requires_list = ['suds-py3', 'pandas']
 
 setup(name = 'PyDatastream',
-      version = '0.3.1',
+      version = '0.4.0',
       description = 'Python interface to the Thomson Reuters Dataworks Enterprise (Datastream) API',
       url = 'http://github.com/vfilimonov/pydatastream',
-      download_url = 'https://github.com/vfilimonov/pydatastream/archive/v0.3.1.zip', 
+      download_url = 'https://github.com/vfilimonov/pydatastream/archive/v0.4.0.zip',
       author = 'Vladimir Filimonov',
-      author_email = 'vfilimonov@ethz.ch',
+      author_email = 'vladimir.a.filimonov@gmail.com',
       license = 'MIT License',
       packages = ['pydatastream'],
       install_requires = install_requires_list,
