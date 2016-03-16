@@ -16,4 +16,8 @@ setup(name = 'PyDatastream',
       license = 'MIT License',
       packages = ['pydatastream'],
       install_requires = install_requires_list
+      classifiers=[
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
+    ]
      )
