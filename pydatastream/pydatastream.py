@@ -14,7 +14,7 @@ class DatastreamException(Exception):
     pass
 
 
-class Datastream:
+class Datastream(object):
     def __init__(self, username, password, url=WSDL_URL):
         """Creating connection to the Thomson Reuters Dataworks Enterprise (DWE) server
            (former Thomson Reuters Datastream).
