@@ -230,8 +230,8 @@ Finally, all these links could be printed in your terminal or iPython notebook b
 
 A special thanks to:
 
-* François Cocquemas `@fcocquemas <https://github.com/fcocquemas>`_ for  [RDatastream](https://github.com/fcocquemas/rdatastream) that has inspired this library
-* Charles Allderman `@ceaza <https://github.com/ceaza>`_ for added support of Python 3
+* François Cocquemas ([@fcocquemas](https://github.com/fcocquemas)) for  [RDatastream](https://github.com/fcocquemas/rdatastream) that has inspired this library
+* Charles Allderman ([@ceaza](https://github.com/ceaza)) for added support of Python 3
 
 
 ## License
