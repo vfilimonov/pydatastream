@@ -13,7 +13,7 @@ PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://
 
 ## Installation
 
-First, install prerequisites: `pandas` and `suds`. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
+First, install prerequisites: `pandas` and `suds` for Python 2; `pandas` and `suds-py3` for Python 3. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
 
     pip install pandas
     pip install suds
