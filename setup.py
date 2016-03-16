@@ -1,4 +1,10 @@
 from distutils.core import setup
+import sys
+
+if sys.version_info.major < 3:
+    install_requires_list = ['suds', 'pandas']
+else:
+    install_requires_list = ['suds-py3', 'pandas']
 
 setup(name = 'PyDatastream',
       version = '0.3.1',
@@ -9,5 +15,9 @@ setup(name = 'PyDatastream',
       author_email = 'vfilimonov@ethz.ch',
       license = 'MIT License',
       packages = ['pydatastream'],
-      install_requires = ['suds', 'pandas']
+      install_requires = install_requires_list,
+      classifiers=[
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
+    ]
      )
