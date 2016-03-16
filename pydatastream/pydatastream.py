@@ -43,17 +43,17 @@ class Datastream:
 
     @staticmethod
     def info():
-        print 'Datastream Navigator:'
-        print 'http://product.datastream.com/navigator/'
-        print ''
-        print 'Datastream documentation:'
-        print 'http://dtg.tfn.com/data/DataStream.html'
-        print ''
-        print 'Dataworks Enterprise documentation:'
-        print 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/'
-        print ''
-        print 'Thomson Reuters Datastream support:'
-        print 'https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y'
+        print('Datastream Navigator:')
+        print('http://product.datastream.com/navigator/')
+        print('')
+        print('Datastream documentation:')
+        print('http://dtg.tfn.com/data/DataStream.html')
+        print('')
+        print('Dataworks Enterprise documentation:')
+        print('http://dataworks.thomson.com/Dataworks/Enterprise/1.0/')
+        print('')
+        print('Thomson Reuters Datastream support:')
+        print('https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y')
 
     def version(self):
         """Return version of the TR DWE."""
@@ -103,7 +103,7 @@ class Datastream:
                  longer than 256 characters.
         """
         if self.show_request:
-            print 'Request:', query
+            print('Request:', query)
 
         rd = self.client.factory.create('RequestData')
         rd.Source = source
@@ -138,7 +138,7 @@ class Datastream:
                requests in the list
         """
         if self.show_request:
-            print 'Requests:', queries
+            print('Requests:', queries)
 
         if not isinstance(queries, list):
             queries = [queries]
@@ -197,7 +197,7 @@ class Datastream:
         """
         status = self.last_status
         if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], (str, unicode)):
+            if isinstance(status['StatusMessage'], (str)):
                 warnings.warn('[DWE] ' + status['StatusMessage'])
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
@@ -249,8 +249,8 @@ class Datastream:
             # Parsing metadata of the symbol
             # NB! currency might be returned as symbol thus "unicode" should be used
             metadata = {'Frequency': str(get_field('FREQUENCY')),
-                        'Currency': unicode(get_field('CCY')),
-                        'DisplayName': unicode(get_field('DISPNAME')),
+                        'Currency': str(get_field('CCY')),
+                        'DisplayName': str(get_field('DISPNAME')),
                         'Symbol': str(get_field('SYMBOL')),
                         'Status': 'OK'}
 
@@ -378,7 +378,7 @@ class Datastream:
         else:
             request = ticker
         if fields is not None:
-            if isinstance(fields, (str, unicode)):
+            if isinstance(fields, (str)):
                 request += '~=' + fields
             elif isinstance(fields, list) and len(fields) > 0:
                 request += '~=' + ','.join(fields)
@@ -436,7 +436,7 @@ class Datastream:
 
         if static:
             data, metadata = self.parse_record_static(raw)
-        elif isinstance(tickers, (str, unicode)) or len(tickers) == 1:
+        elif isinstance(tickers, (str)) or len(tickers) == 1:
             data, metadata = self.parse_record(raw)
         elif isinstance(tickers, list):
             metadata = pd.DataFrame()
