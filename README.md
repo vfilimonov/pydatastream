@@ -18,7 +18,7 @@ First, install prerequisites: `pandas` and `suds` for Python 2; `pandas` and `su
     pip install pandas
     pip install suds
 
-However, please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html) for the dependencies. 
+For the dependencies of `pandas` please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html).
 
 The latest version of PyDatastream is always available at [GitHub](https://github.com/vfilimonov/pydatastream) at the `master` branch. Last relese could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream) using `pip`:
 
@@ -224,6 +224,14 @@ If you have access codes for the Datastream Extranet, you can use the [Datastrea
 Finally, all these links could be printed in your terminal or iPython notebook by calling
 
 	DWE.info()
+
+
+## Acknowledgements
+
+A special thanks to:
+
+* François Cocquemas `@fcocquemas <https://github.com/fcocquemas>`_ for  [RDatastream](https://github.com/fcocquemas/rdatastream) that has inspired this library
+* Charles Allderman `@ceaza <https://github.com/ceaza>`_ for added support of Python 3
 
 
 ## License
