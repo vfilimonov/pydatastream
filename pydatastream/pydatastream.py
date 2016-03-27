@@ -104,7 +104,7 @@ class Datastream(object):
                  longer than 256 characters.
         """
         if self.show_request:
-            print('Request:', query)
+            print(('Request:', query))
 
         rd = self.client.factory.create('RequestData')
         rd.Source = source
@@ -139,7 +139,7 @@ class Datastream(object):
                requests in the list
         """
         if self.show_request:
-            print('Requests:', queries)
+            print(('Requests:', queries))
 
         if not isinstance(queries, list):
             queries = [queries]
