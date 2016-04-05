@@ -42,16 +42,17 @@ class Datastream(object):
         self.last_status = None     # Will contain status of last request
 
         self._url = kwargs.pop('url', WSDL_URL)
-        self.client = Client(self._url, username=username, password=password)
 
-        # Settuing up proxy parameters if necessary
+        # Setting up proxy parameters if necessary
         if proxy is not None:
             if isinstance(proxy, basestring):
                 proxy = {'http': proxy, 'https': proxy}
             elif not isinstance(proxy, dict):
                 raise ValueError('Proxy should be either None, or string or dict.')
-            self.client.set_options(proxy=proxy)
-
+            self.client = Client(self._url, username=username, password=password, proxy=proxy)
+        else:
+            self.client = Client(self._url, username=username, password=password)
+            
         # Trying to connect
         try:
             self.ver = self.version()
