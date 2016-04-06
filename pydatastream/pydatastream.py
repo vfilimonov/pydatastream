@@ -15,23 +15,49 @@ class DatastreamException(Exception):
 
 
 class Datastream(object):
-    def __init__(self, username, password, url=WSDL_URL):
-        """Creating connection to the Thomson Reuters Dataworks Enterprise (DWE) server
-           (former Thomson Reuters Datastream).
+    def __init__(self, username, password, raise_on_error=True, show_request=False,
+                 proxy=None, **kwargs):
+        """Establish a connection to the Thomson Reuters Dataworks Enterprise
+           (DWE) server (former Thomson Reuters Datastream).
+
+           username / password - credentials for the DWE account.
+           raise_on_error - If True then error request will raise a "DatastreamException",
+                            otherwise either empty dataframe or partially
+                            retrieved data will be returned
+           show_request - If True, then every time a request string will be printed
+           proxy - URL for the proxy server. Valid values:
+                   (a) None: no proxy is used
+                   (b) string of format "proxyLocaion:portNumber": This proxy
+                       address will be used for both HTTP and HTTPS (by default
+                       HTTP protocol is used)
+                   (c) dict of format {'http': 'location:port', 'https': 'location':port}
+                       in case when addresses/ports for HTTP and HTTPS proxies are
+                       different.
+
+           A custom WSDL url (if necessary for some reasons) could be provided
+           via "url" parameter.
         """
-        self.client = Client(url, username=username, password=password)
-
-        self.show_request = False   # If True then request string will be printed
+        self.show_request = show_request
+        self.raise_on_error = raise_on_error
         self.last_status = None     # Will contain status of last request
-        self.raise_on_error = True  # if True then error request will raise, otherwise
-                                    # either empty dataframe or partially retrieved
-                                    # data will be returned
 
+        self._url = kwargs.pop('url', WSDL_URL)
+
+        # Setting up proxy parameters if necessary
+        if proxy is not None:
+            if isinstance(proxy, basestring):
+                proxy = {'http': proxy, 'https': proxy}
+            elif not isinstance(proxy, dict):
+                raise ValueError('Proxy should be either None, or string or dict.')
+            self.client = Client(self._url, username=username, password=password, proxy=proxy)
+        else:
+            self.client = Client(self._url, username=username, password=password)
+            
         # Trying to connect
         try:
             self.ver = self.version()
         except:
-            raise DatastreamException('Can not retrieve the data')
+            raise DatastreamException('Can not retrieve the data.')
 
         # Creating UserData object
         self.userdata = self.client.factory.create('UserData')
@@ -44,6 +70,9 @@ class Datastream(object):
 
     @staticmethod
     def info():
+        print('PyDatastream documentation:')
+        print('https://github.com/vfilimonov/pydatastream')
+        print('')
         print('Datastream Navigator:')
         print('http://product.datastream.com/navigator/')
         print('')

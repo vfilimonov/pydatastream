@@ -31,7 +31,7 @@ All methods to work with the DWE is organized as a class, so first you need to c
     from pydatastream import Datastream
     DWE = Datastream(username="DS:XXXX000", password="XXX000")
 
-If authentication was successful, then you can check system information (including version of DWE):
+If necessary, the proxy server could be specified here via extra `proxy` parameter (e.g. `proxy='proxyLocation:portNumber'`). If authentication was successful, then you can check out system information (including the version of the DWE):
 
     DWE.system_info()
 

@@ -18,7 +18,7 @@ GitHub (https://github.com/vfilimonov/pydatastream/blob/master/README.md).
 """
 
 setup(name='PyDatastream',
-      version='0.4.1',
+      version='0.4.2',
       description='Python interface to the Thomson Reuters Dataworks Enterprise (Datastream) API',
       long_description=LONG_DESCRIPTION,
       url='http://github.com/vfilimonov/pydatastream',
