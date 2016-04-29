@@ -26,6 +26,14 @@ https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y
 """
 
 
+def ustr(x):
+    """Unicode-safe version of str()"""
+    try:
+        return str(x)
+    except UnicodeEncodeError:
+        return unicode(x)
+
+
 class DatastreamException(Exception):
     pass
 
@@ -91,29 +99,29 @@ class Datastream(object):
     def version(self):
         """Return version of the TR DWE."""
         res = self.client.service.Version()
-        return '.'.join([str(x) for x in res[0]])
+        return '.'.join([ustr(x) for x in res[0]])
 
     def system_info(self):
         """Return system information."""
         res = self.client.service.SystemInfo()
-        res = {str(x[0]): x[1] for x in res[0]}
+        res = {ustr(x[0]): x[1] for x in res[0]}
 
-        to_str = lambda arr: '.'.join([str(x) for x in arr[0]])
+        to_str = lambda arr: '.'.join([ustr(x) for x in arr[0]])
         res['OSVersion'] = to_str(res['OSVersion'])
         res['RuntimeVersion'] = to_str(res['RuntimeVersion'])
         res['Version'] = to_str(res['Version'])
 
-        res['Name'] = str(res['Name'])
-        res['Server'] = str(res['Server'])
-        res['LocalNameCheck'] = str(res['LocalNameCheck'])
-        res['UserHostAddress'] = str(res['UserHostAddress'])
+        res['Name'] = ustr(res['Name'])
+        res['Server'] = ustr(res['Server'])
+        res['LocalNameCheck'] = ustr(res['LocalNameCheck'])
+        res['UserHostAddress'] = ustr(res['UserHostAddress'])
 
         return res
 
     def sources(self):
         """Return available sources of data."""
         res = self.client.service.Sources(self.userdata, 0)
-        return [str(x[0]) for x in res[0]]
+        return [ustr(x[0]) for x in res[0]]
 
     def request(self, query, source='Datastream',
                 fields=None, options=None, symbol_set=None, tag=None):
@@ -136,7 +144,10 @@ class Datastream(object):
                  longer than 256 characters.
         """
         if self.show_request:
-            print(('Request:', query))
+            try:
+                print(('Request:', query))
+            except UnicodeEncodeError:
+                print(('Request:', query.encode('utf-8')))
 
         rd = self.client.factory.create('RequestData')
         rd.Source = source
@@ -218,11 +229,11 @@ class Datastream(object):
                                  12 - 'Internal'
         """
         if record is not None:
-            self.last_status = {'Source': str(record['Source']),
-                                'StatusType': str(record['StatusType']),
+            self.last_status = {'Source': ustr(record['Source']),
+                                'StatusType': ustr(record['StatusType']),
                                 'StatusCode': record['StatusCode'],
-                                'StatusMessage': str(record['StatusMessage']),
-                                'Request': str(record['Instrument'])}
+                                'StatusMessage': ustr(record['StatusMessage']),
+                                'Request': ustr(record['Instrument'])}
         return self.last_status
 
     def _test_status_and_warn(self):
@@ -281,17 +292,17 @@ class Datastream(object):
         except KeyError:
             # Parsing metadata of the symbol
             # NB! currency might be returned as symbol thus "unicode" should be used
-            metadata = {'Frequency': str(get_field('FREQUENCY')),
-                        'Currency': str(get_field('CCY')),
-                        'DisplayName': str(get_field('DISPNAME')),
-                        'Symbol': str(get_field('SYMBOL')),
+            metadata = {'Frequency': ustr(get_field('FREQUENCY')),
+                        'Currency': ustr(get_field('CCY')),
+                        'DisplayName': ustr(get_field('DISPNAME')),
+                        'Symbol': ustr(get_field('SYMBOL')),
                         'Status': 'OK'}
 
         # Fields with data
         if suffix == '':
-            fields = [str(x) for x in record if '_' not in x]
+            fields = [ustr(x) for x in record if '_' not in x]
         else:
-            fields = [str(x) for x in record if suffix in x]
+            fields = [ustr(x) for x in record if suffix in x]
 
         # Filter metadata
         meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
