@@ -9,6 +9,22 @@ from suds.client import Client
 
 WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
 
+_INFO = """PyDatastream documentation (GitHub):
+https://github.com/vfilimonov/pydatastream
+
+Datastream Navigator:
+http://product.datastream.com/navigator/
+
+Datastream documentation:
+http://dtg.tfn.com/data/DataStream.html
+
+Dataworks Enterprise documentation:
+http://dataworks.thomson.com/Dataworks/Enterprise/1.0/
+
+Thomson Reuters Datastream support:
+https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y
+"""
+
 
 class DatastreamException(Exception):
     pass
@@ -52,7 +68,7 @@ class Datastream(object):
             self.client = Client(self._url, username=username, password=password, proxy=proxy)
         else:
             self.client = Client(self._url, username=username, password=password)
-            
+
         # Trying to connect
         try:
             self.ver = self.version()
@@ -70,20 +86,7 @@ class Datastream(object):
 
     @staticmethod
     def info():
-        print('PyDatastream documentation:')
-        print('https://github.com/vfilimonov/pydatastream')
-        print('')
-        print('Datastream Navigator:')
-        print('http://product.datastream.com/navigator/')
-        print('')
-        print('Datastream documentation:')
-        print('http://dtg.tfn.com/data/DataStream.html')
-        print('')
-        print('Dataworks Enterprise documentation:')
-        print('http://dataworks.thomson.com/Dataworks/Enterprise/1.0/')
-        print('')
-        print('Thomson Reuters Datastream support:')
-        print('https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y')
+        print(_INFO)
 
     def version(self):
         """Return version of the TR DWE."""
@@ -227,7 +230,7 @@ class Datastream(object):
         """
         status = self.last_status
         if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], (str)):
+            if isinstance(status['StatusMessage'], basestring):
                 warnings.warn('[DWE] ' + status['StatusMessage'])
             elif isinstance(status['StatusMessage'], list):
                 warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
@@ -246,7 +249,7 @@ class Datastream(object):
            metadata - pandas.DataFrame with info about symbol, currency, frequency,
                       displayname and status of given request
         """
-        suffix = '' if indx == 0 else '_%i' % (indx+1)
+        suffix = '' if indx == 0 else '_%i' % (indx + 1)
 
         # Parsing status
         status = self.status(raw)
@@ -262,7 +265,7 @@ class Datastream(object):
                 return pd.DataFrame(), {}
 
         record = self.extract_data(raw)
-        get_field = lambda fldname: record[fldname+suffix]
+        get_field = lambda fldname: record[fldname + suffix]
 
         try:
             error = get_field('INSTERROR')
@@ -295,8 +298,8 @@ class Datastream(object):
         fields = [x.replace(suffix, '') for x in fields
                   if not any([y in x for y in meta_fields])]
 
-        if 'DATE'+suffix in record:
-            date = record['DATE'+suffix]
+        if 'DATE' + suffix in record:
+            date = record['DATE' + suffix]
         elif 'DATE' in record:
             date = record['DATE']
         else:
@@ -363,7 +366,7 @@ class Datastream(object):
         num = len([x[0] for x in record if 'SYMBOL' in x])
 
         # field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, indx: field if indx == 0 else field + '_%i' % (indx+1)
+        fld_name = lambda field, indx: field if indx == 0 else field + '_%i' % (indx + 1)
 
         # Construct pd.DataFrame
         res = pd.DataFrame({fld: [record[fld_name(fld, ind)]
@@ -408,7 +411,7 @@ class Datastream(object):
         else:
             request = ticker
         if fields is not None:
-            if isinstance(fields, (str)):
+            if isinstance(fields, basestring):
                 request += '~=' + fields
             elif isinstance(fields, list) and len(fields) > 0:
                 request += '~=' + ','.join(fields)
@@ -466,7 +469,7 @@ class Datastream(object):
 
         if static:
             data, metadata = self.parse_record_static(raw)
-        elif isinstance(tickers, (str)) or len(tickers) == 1:
+        elif isinstance(tickers, basestring) or len(tickers) == 1:
             data, metadata = self.parse_record(raw)
         elif isinstance(tickers, list):
             metadata = pd.DataFrame()
