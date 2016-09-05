@@ -3,6 +3,24 @@ import datetime as dt
 import warnings
 from suds.client import Client
 
+# Python3-safe basesctring Method
+# http://www.rfk.id.au/blog/entry/preparing-pyenchant-for-python-3/
+try:
+    unicode = unicode
+except NameError:
+    # 'unicode' is undefined, must be Python 3
+    str = str
+    unicode = str
+    bytes = bytes
+    basestring = (str, bytes)
+else:
+    # 'unicode' exists, must be Python 2
+    str = str
+    unicode = unicode
+    bytes = str
+    basestring = basestring
+
+
 # TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
 #       datatypes for each value (thus response is ~2 times smaller)
 # TODO: QTEALL: all available active tickers for the company (e.g. "U:IBM~=QTEALL~REP")

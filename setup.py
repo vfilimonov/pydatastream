@@ -17,12 +17,15 @@ For the documentation please refer to README.md inside the package or on the
 GitHub (https://github.com/vfilimonov/pydatastream/blob/master/README.md).
 """
 
+_URL = 'http://github.com/vfilimonov/pydatastream'
+_VERSION = '0.4.4'
+
 setup(name='PyDatastream',
-      version='0.4.3',
+      version=_VERSION,
       description='Python interface to the Thomson Reuters Dataworks Enterprise (Datastream) API',
       long_description=LONG_DESCRIPTION,
-      url='http://github.com/vfilimonov/pydatastream',
-      download_url='https://github.com/vfilimonov/pydatastream/archive/v0.4.1.zip',
+      url=_URL,
+      download_url=_URL + '/archive/v' + _VERSION + '.zip',
       author='Vladimir Filimonov',
       author_email='vladimir.a.filimonov@gmail.com',
       license='MIT License',
