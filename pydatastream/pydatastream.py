@@ -163,9 +163,9 @@ class Datastream(object):
         """
         if self.show_request:
             try:
-                print(('Request:', query))
+                print('Request:' + query)
             except UnicodeEncodeError:
-                print(('Request:', query.encode('utf-8')))
+                print('Request:' + query.encode('utf-8'))
 
         rd = self.client.factory.create('RequestData')
         rd.Source = source
@@ -435,10 +435,12 @@ class Datastream(object):
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
-        if isinstance(ticker, list):
+        if isinstance(ticker, basestring):
+            request = ticker
+        elif hasattr(ticker, '__len__'):
             request = ','.join(ticker)
         else:
-            request = ticker
+            raise ValueError('ticker should be either string or list/array of strings')
         if fields is not None:
             if isinstance(fields, basestring):
                 request += '~=' + fields
@@ -500,7 +502,7 @@ class Datastream(object):
             data, metadata = self.parse_record_static(raw)
         elif isinstance(tickers, basestring) or len(tickers) == 1:
             data, metadata = self.parse_record(raw)
-        elif isinstance(tickers, list):
+        elif hasattr(tickers, '__len__'):
             metadata = pd.DataFrame()
             data = {}
             for indx in range(len(tickers)):
