@@ -564,14 +564,20 @@ class Datastream(object):
         return data
 
     #################################################################################
-    def get_constituents(self, index_ticker, date=None, return_raw=False):
+    def get_constituents(self, index_ticker, date=None, return_raw=False,
+                         only_list=False):
         """ Get a list of all constituents of a given index.
 
             index_ticker - Datastream ticker for index
             date         - date for which list should be retrieved (if None then
                            list of present constituents is retrieved)
-            return_raw   - Method does not parse the response to pd.DataFrame format
+            return_raw   - method does not parse the response to pd.DataFrame format
                            and returns the raw dict (for debugging purposes)
+            only_list    - request only list of symbols. By default the method
+                           retrieves many extra fields with information (various
+                           mnemonics and codes). This might pose some problems
+                           for large indices like Russel-3000. If only_list=True,
+                           then only the list of symbols and names are retrieved.
         """
         if date is not None:
             str_date = pd.to_datetime(date).strftime('%m%y')
@@ -580,7 +586,8 @@ class Datastream(object):
         # Note: ~XREF is equal to the following large request
         # ~REP~=DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,INDXFS,INDXL,
         #       INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE
-        query = 'L' + index_ticker + str_date + '~XREF'
+        fields = '~REP~=NAME' if only_list else '~XREF'
+        query = 'L' + index_ticker + str_date + fields
         raw = self.request(query)
 
         if return_raw:

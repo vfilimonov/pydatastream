@@ -115,6 +115,12 @@ As an option, the list for a specific date can be requested as well:
 
 	res = DWE.get_constituents('S&PCOMP', '1-sept-2013')
 
+By default the method retrieves many various mnemonics and codes for the constituents,
+which might pose a problem for large indices like Russel-3000 (the request might be killed
+on timeout). In this case one can request only symbols and company names using:
+
+  res = DWE.get_constituents('FRUSS3L', only_list=True)
+
 ### Static requests
 
 List of constituents of indices, that were considered above, is an example of static request, i.e. a request that does not retrieve a time-series, but a single snapshot with the data.
