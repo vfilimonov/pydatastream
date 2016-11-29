@@ -568,15 +568,12 @@ class Datastream(object):
         return data
 
     #################################################################################
-    def get_constituents(self, index_ticker, date=None, return_raw=False,
-                         only_list=False):
+    def get_constituents(self, index_ticker, date=None, only_list=False):
         """ Get a list of all constituents of a given index.
 
             index_ticker - Datastream ticker for index
             date         - date for which list should be retrieved (if None then
                            list of present constituents is retrieved)
-            return_raw   - method does not parse the response to pd.DataFrame format
-                           and returns the raw dict (for debugging purposes)
             only_list    - request only list of symbols. By default the method
                            retrieves many extra fields with information (various
                            mnemonics and codes). This might pose some problems
@@ -593,9 +590,6 @@ class Datastream(object):
         fields = '~REP~=NAME' if only_list else '~XREF'
         query = 'L' + index_ticker + str_date + fields
         raw = self.request(query)
-
-        if return_raw:
-            return self.extract_data(raw)
 
         res, metadata = self.parse_record_static(raw)
         return res
