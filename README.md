@@ -204,20 +204,33 @@ If request contains errors then normally `DatastreamException` will be raised an
 	print DWE.parse_record(res[0])
 	print DWE.parse_record(res[1])
 
-`raise_on_error` can be useful for requests that contain several tickers. In this case data fields and/or tickers that can not be fetched will be replaced with NaNs in resulting pandas.Panel.
+`raise_on_error` can be useful for requests that contain several tickers. In this case data fields and/or tickers that can not be fetched will be replaced with NaNs in resulting pandas.Panel. However please be aware, that this is not a silver bullet against all types
+of errors. In all complicated cases it is suggested to go with one symbol at a time and
+check the raw response from the server to spot invalid combinations of ticker-field.
 
 For the debugging purposes, Datastream class has `show_request` property, which, if set to `True`, makes standard methods to output the text string with request:
 
 	DWE.show_request = True
 	data = DWE.fetch('@AAPL', ['P','MV','VO',], date_from='2000-01-01')
 
-Finally, method `status` could extract status info from the record with raw response:
+Method `status` could extract status info from the record with raw response:
 
 	print DWE.status(res[1])
 
 and `last_status` property always contains status of the last parsed record:
 
 	print DWE.last_status
+
+In many cases the errors occur at the stage of parsing the raw response from the server.
+For example, this could happen if some fields requested are not supported for all symbols
+in the request. Because the data returned from the server in the unstructured form and the
+parser tries to map this to the structured pandas.DataFrame/Panel, the exceptions could be
+relatively uninformative. In this case it is possible to check the raw response from the
+server to spot the problematic field. The last raw response is stored in the `last_response`
+field:
+
+  print DWE.last_response
+
 
 ## Resources
 

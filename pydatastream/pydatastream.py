@@ -106,6 +106,8 @@ class Datastream(object):
         self.userdata.Username = username
         self.userdata.Password = password
 
+        self.last_response = None
+
         # Check available data sources
         if 'Datastream' not in self.sources():
             warnings.warn("'Datastream' source is not available for given subscription!")
@@ -177,7 +179,9 @@ class Datastream(object):
         rd.Options = options
         rd.Tag = tag
 
-        return self.client.service.RequestRecord(self.userdata, rd, 0)
+        self.last_response = self.client.service.RequestRecord(self.userdata, rd, 0)
+
+        return self.last_response
 
     def request_many(self, queries, source='Datastream',
                      fields=None, options=None, symbol_set=None, tag=None):
