@@ -475,7 +475,7 @@ class Datastream(object):
            static  - if True "static" request is created (i.e. not a series).
                      In this case 'date_from', 'date_to' and 'freq' are ignored
 
-           NB! in case list of tickers is requested, pandas.Panel is returned.
+           In case list of tickers is requested, a MultiIndex-dataframe is returned.
 
            Some of available fields:
            P  - adjusted closing price
@@ -514,7 +514,7 @@ class Datastream(object):
                 data[tickers[indx]] = dat
                 metadata = metadata.append(meta, ignore_index=False)
 
-            data = pd.Panel(data).swapaxes('items', 'minor')
+            data = pd.concat(data)
         else:
             raise DatastreamException(('First argument should be either ticker or '
                                        'list of tickers'))

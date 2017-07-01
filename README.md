@@ -11,6 +11,10 @@ PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://
   - R: [RDatastream](https://github.com/fcocquemas/rdatastream) (in fact PyDatastream was inspired by RDatastream).
 * I am always open for suggestions, critique and bug reports.
 
+## Important (backward incompatible) changes
+
+* Starting version 0.5.0 the methods `fetch()` for many tickers returns MultiIndex Dataframe instead of former Panel. This follows the development of the Pandas library where the Panels are deprecated starting version 0.20.0 (see [here](http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#whatsnew-0200-api-breaking-deprecate-panel)).
+
 ## Installation
 
 First, install prerequisites: `pandas` and `suds` for Python 2; `pandas` and `suds-py3` for Python 3. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
@@ -84,25 +88,28 @@ fetches the closing price, daily volume and market valuation for Apple Inc.
 
 ### Requesting several tickers at once
 
-`fetch` can be used for requesting data for several tickers at once. In this case pandas.Panel (instead of pandas.DataFrame) will be returned.
+`fetch` can be used for requesting data for several tickers at once. In this case a MultiIndex Dataframe will be returned (see [Pandas: MultiIndex / Advanced Indexing](https://pandas.pydata.org/pandas-docs/stable/advanced.html)).
 
 	res = DWE.fetch(['@AAPL','U:MMM'], fields=['P','MV','VO','PH'], date_from='2000-05-03')
-	print res['MV'].head()
+	print res['MV'].unstack(level=0)
 
-For convenience major and minor axes of panel are swapped, so the result is mimicking pandas method for [fetching data from Yahoo! Finance](http://pandas.pydata.org/pandas-docs/dev/remote_data.html#yahoo-finance). Panel can be sliced to get the data for each ticker:
+The resulting data frame could be sliced, in order to select all fields for a given ticker:
 
-	df = res.minor_xs('@AAPL')
-	print df.head()
+  print res.loc['U:MMM'].head()
 
-As discussed below, it may be convenient to set up property `raise_on_error` to `False` when fetching data of several tickers. In this case if one or several tickers are misspecified, error will no be raised, but the missing data will be replaced with NaNs:
+or data for the specific field for all tickers:
+
+  print res['MV'].unstack(level=0).head()
+
+As discussed below, it may be convenient to set up property `raise_on_error` to `False` when fetching data of several tickers. In this case if one or several tickers are misspecified, error will no be raised, but they will not be present in the output data frame. Further, if some field does not exist for some of tickers, but exists for others, the missing data will be replaced with NaNs:
 
 	DWE.raise_on_error = False
 	res = DWE.fetch(['@AAPL','U:MMM','xxxxxx','S&PCOMP'], fields=['P','MV','VO','PH'], date_from='2000-05-03')
 
-	print res['MV'].head()
-	print res['P'].head()
+	print res['MV'].unstack(level=0).head()
+	print res['P'].unstack(level=0).head()
 
-Please note, that in the last example the closing price (`P`) for `S&PCOMP` ticker was not retrieved. Due to Thomson Reuters Datastream mnenomics, field `P` is not available for indexes and field `PI` should be used instead.
+Please note, that in the last example the closing price (`P`) for `S&PCOMP` ticker was not retrieved. Due to Thomson Reuters Datastream mnemonics, field `P` is not available for indexes and field `PI` should be used instead.
 
 ### Constituents list for indices
 
@@ -204,9 +211,7 @@ If request contains errors then normally `DatastreamException` will be raised an
 	print DWE.parse_record(res[0])
 	print DWE.parse_record(res[1])
 
-`raise_on_error` can be useful for requests that contain several tickers. In this case data fields and/or tickers that can not be fetched will be replaced with NaNs in resulting pandas.Panel. However please be aware, that this is not a silver bullet against all types
-of errors. In all complicated cases it is suggested to go with one symbol at a time and
-check the raw response from the server to spot invalid combinations of ticker-field.
+`raise_on_error` can be useful for requests that contain several tickers. In this case data fields and/or tickers that can not be fetched will not be present in the output. However please be aware, that this is not a silver bullet against all types of errors. In all complicated cases it is suggested to go with one symbol at a time and check the raw response from the server to spot invalid combinations of ticker-field.
 
 For the debugging purposes, Datastream class has `show_request` property, which, if set to `True`, makes standard methods to output the text string with request:
 
@@ -224,7 +229,7 @@ and `last_status` property always contains status of the last parsed record:
 In many cases the errors occur at the stage of parsing the raw response from the server.
 For example, this could happen if some fields requested are not supported for all symbols
 in the request. Because the data returned from the server in the unstructured form and the
-parser tries to map this to the structured pandas.DataFrame/Panel, the exceptions could be
+parser tries to map this to the structured pandas.DataFrame, the exceptions could be
 relatively uninformative. In this case it is possible to check the raw response from the
 server to spot the problematic field. The last raw response is stored in the `last_response`
 field:
