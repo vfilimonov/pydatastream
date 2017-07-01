@@ -475,7 +475,7 @@ class Datastream(object):
            static  - if True "static" request is created (i.e. not a series).
                      In this case 'date_from', 'date_to' and 'freq' are ignored
 
-           NB! in case list of tickers is requested, pandas.Panel is returned.
+           In case list of tickers is requested, a MultiIndex-dataframe is returned.
 
            Some of available fields:
            P  - adjusted closing price
@@ -514,7 +514,7 @@ class Datastream(object):
                 data[tickers[indx]] = dat
                 metadata = metadata.append(meta, ignore_index=False)
 
-            data = pd.Panel(data).swapaxes('items', 'minor')
+            data = pd.concat(data)
         else:
             raise DatastreamException(('First argument should be either ticker or '
                                        'list of tickers'))
@@ -568,15 +568,12 @@ class Datastream(object):
         return data
 
     #################################################################################
-    def get_constituents(self, index_ticker, date=None, return_raw=False,
-                         only_list=False):
+    def get_constituents(self, index_ticker, date=None, only_list=False):
         """ Get a list of all constituents of a given index.
 
             index_ticker - Datastream ticker for index
             date         - date for which list should be retrieved (if None then
                            list of present constituents is retrieved)
-            return_raw   - method does not parse the response to pd.DataFrame format
-                           and returns the raw dict (for debugging purposes)
             only_list    - request only list of symbols. By default the method
                            retrieves many extra fields with information (various
                            mnemonics and codes). This might pose some problems
@@ -593,9 +590,6 @@ class Datastream(object):
         fields = '~REP~=NAME' if only_list else '~XREF'
         query = 'L' + index_ticker + str_date + fields
         raw = self.request(query)
-
-        if return_raw:
-            return self.extract_data(raw)
 
         res, metadata = self.parse_record_static(raw)
         return res
