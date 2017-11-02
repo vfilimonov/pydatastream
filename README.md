@@ -95,13 +95,28 @@ fetches the closing price, daily volume and market valuation for Apple Inc.
 
 The resulting data frame could be sliced, in order to select all fields for a given ticker:
 
-  print res.loc['U:MMM'].head()
+	print res.loc['U:MMM'].head()
 
 or data for the specific field for all tickers:
 
-  print res['MV'].unstack(level=0).head()
+	print res['MV'].unstack(level=0).head()
+	
+#### Note 1: Default field
 
-As discussed below, it may be convenient to set up property `raise_on_error` to `False` when fetching data of several tickers. In this case if one or several tickers are misspecified, error will no be raised, but they will not be present in the output data frame. Further, if some field does not exist for some of tickers, but exists for others, the missing data will be replaced with NaNs:
+There's a slight ambiguity of what "P" stands for.
+For cash equities there's a datatype "P" which correspond to adjusted price.
+However when one does the request to an API, "P" also stands for the default field. And if no fields (datatypes) are supplied, API will assume that the default field "P" is requested.
+
+It looks like, that when one requests several symbols, API will treat the `"P"` (even if it is implied, i.e. no datatypes are specified) strictly as a datatype. So if the datatype "P" does not exist (e.g. for exchange rates: "EUDOLLR" or equity indices: "S&PCOMP") the request will be resulting in an error: e.g. `$$"ER", E100, INVALID CODE OR EXPRESSION ENTERED, USDOLLR(P)`.
+
+So in order retrieve several symbols at once, proper datatypes should be specified. For example:
+
+	res = DWE.fetch(['EUDOLLR','USDOLLR'], fields=['EB','EO'])
+
+	
+#### Note 2: error catching
+
+As it will be discussed below, it may be convenient to set up property `raise_on_error` to `False` when fetching data of several tickers. In this case if one or several tickers are misspecified, error will no be raised, but they will not be present in the output data frame. Further, if some field does not exist for some of tickers, but exists for others, the missing data will be replaced with NaNs:
 
 	DWE.raise_on_error = False
 	res = DWE.fetch(['@AAPL','U:MMM','xxxxxx','S&PCOMP'], fields=['P','MV','VO','PH'], date_from='2000-05-03')
@@ -126,7 +141,7 @@ By default the method retrieves many various mnemonics and codes for the constit
 which might pose a problem for large indices like Russel-3000 (the request might be killed
 on timeout). In this case one can request only symbols and company names using:
 
-  res = DWE.get_constituents('FRUSS3L', only_list=True)
+	res = DWE.get_constituents('FRUSS3L', only_list=True)
 
 ### Static requests
 
@@ -234,7 +249,7 @@ relatively uninformative. In this case it is possible to check the raw response 
 server to spot the problematic field. The last raw response is stored in the `last_response`
 field:
 
-  print DWE.last_response
+	print DWE.last_response
 
 
 ## Resources
@@ -250,6 +265,17 @@ Finally, all these links could be printed in your terminal or iPython notebook b
 	DWE.info()
 
 
+### Datastream Navigator
+
+[Datastream Navigator](http://product.datastream.com/navigator/) is the best place to search for mnemonics for a particular security or a list of available datatypes/fields. Credentials for the login are the same as for the API, except for the username which should be `XXXXXX` if the API username is `DS:XXXXXX`.
+
+Once a necessary security is located (either by search or via "Explore" menu item), a short list of most frequently used mnemonics is located right under the chart with the series. Further the small button ">>" next to them open a longer list. 
+
+The complete list of dataypes (includig static) for a particular asset class is located in the "Datatype search" menu item. Here the proper asset class should be selected.
+
+Help for Datastream Navigator is available [here](http://product.datastream.com/WebHelp/Navigator/4.5/HelpFiles/Nav_help.htm).
+
+
 ## Acknowledgements
 
 A special thanks to:
@@ -260,4 +286,8 @@ A special thanks to:
 
 ## License
 
-PyDatastream is released under the MIT license.
+PyDatastream library is released under the MIT license.
+
+The license for the library is not extended in any sense to any of the content of the Thomson Reuters Dataworks Enterprise, Datastream, Datastream Navigator or related services. Appropriate contract with Thomson Reuters and valid credentials are required in order to use the API.
+
+Author of the library ([@vfilimonov](https://github.com/vfilimonov)) is not affiliated, associated, authorized, sponsored, endorsed by, or in any way officially connected with Thomson Reuters, or any of its subsidiaries or its affiliates. The name “Thomson Reuters” as well as related names are registered trademarks of Thomson Reuters. 
