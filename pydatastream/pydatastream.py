@@ -593,3 +593,80 @@ class Datastream(object):
 
         res, metadata = self.parse_record_static(raw)
         return res
+
+    #################################################################################
+    def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):
+        """ Construct the vintage matrix for a given economic series.
+            Requires subscription to Thomson Reuters Economic Point-in-Time (EPiT).
+
+            Vintage matrix represents a DataFrame where columns correspond to a
+            particular period (quarter or month) for the reported statistic and
+            index represents timestamps at which these values were released by
+            the respective official agency. I.e. every line corresponds to all
+            available reported values by the given date.
+
+            For example:
+
+            >> DWE.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
+
+                        2015-02-15  2015-05-15  2015-08-15  2015-11-15  \
+            2015-04-29    16304.80         NaN         NaN         NaN
+            2015-05-29    16264.10         NaN         NaN         NaN
+            2015-06-24    16287.70         NaN         NaN         NaN
+            2015-07-30    16177.30   16270.400         NaN         NaN
+            2015-08-27    16177.30   16324.300         NaN         NaN
+            2015-09-25    16177.30   16333.600         NaN         NaN
+            2015-10-29    16177.30   16333.600   16394.200         NaN
+            2015-11-24    16177.30   16333.600   16417.800         NaN
+
+            From the matrix it is seen for example, that the advance GDP estimate
+            for 2015-Q1 (corresponding to 2015-02-15) was released on 2015-04-29
+            and was equal to 16304.80 (B USD). The first revision (16264.10) has
+            happened on 2015-05-29 and the second (16287.70) - on 2015-06-24.
+            On 2015-07-30 the advance GDP figure for 2015-Q2 was released
+            (16270.400) together with update on the 2015-Q1 value (16177.30)
+            and so on.
+        """
+        # Get first available date from the REL1 series
+        rel1 = self.fetch(mnemonic, 'REL1', date_from=date_from, date_to=date_to)
+        date_0 = rel1.dropna().index[0]
+
+        # All release dates
+        reld123 = self.fetch(mnemonic, ['RELD1', 'RELD2', 'RELD3'],
+                             date_from=date_0, date_to=date_to).dropna(how='all')
+
+        # Fetch all vintages
+        res = {}
+        for date in reld123.index:
+            try:
+                _tmp = self.fetch(mnemonic, 'RELV', date_from=date_0, date_to=date).dropna()
+            except DatastreamException:
+                continue
+            res[date] = _tmp
+        return pd.concat(res).RELV.unstack()
+
+    #################################################################################
+    def get_epit_revisions(self, mnemonic, period, relh50=False):
+        """ Return initial estimate and first revisions of a given economic time
+            series and a given period.
+            Requires subscription to Thomson Reuters Economic Point-in-Time (EPiT).
+
+            "Period" parameter should represent a date which falls within a time
+            period of interest, e.g. 2016 Q4 could be requested with the
+            period='2016-11-15' for example.
+
+            By default up to 20 values is returned unless argument "relh50" is
+            set to True (in which case up to 50 values is returned).
+        """
+        if relh50:
+            data = self.fetch(mnemonic, 'RELH50', date=period, static=True)
+        else:
+            data = self.fetch(mnemonic, 'RELH', date=period, static=True)
+        data = data.iloc[0]
+
+        # Parse the response
+        res = {data.loc['RELHD%02d' % i]: data.loc['RELHV%02d' % i]
+               for i in range(1, 51 if relh50 else 21)
+               if data.loc['RELHD%02d' % i] != ''}
+        res = pd.Series(res, name=data.loc['RELHP  ']).sort_index()
+        return res

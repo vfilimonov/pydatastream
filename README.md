@@ -197,6 +197,7 @@ Calculate year-on-year difference (actual change) for the UK real GDP (constant 
 
 Documentation on the available functions are available on the [Thompson Reuters webhelp](http://product.datastream.com/navigator/advancehelpfiles/functions/webhelp/hfunc.htm).
 
+
 ### Using custom requests
 
 The module has a general-purpose function `request` that can be used for fetching data with custom requests. This function returns raw data in format of `suds` package. Data can be used directly or parsed later with the `parse_record` method:
@@ -262,6 +263,44 @@ server to spot the problematic field. The last raw response is stored in the `la
 field:
 
 	print DWE.last_response
+
+## Thomson Reuters Economic Point-in-Time (EPiT) functionality
+
+PyDatastream has two useful methods to work with the Thomson Reuters Economic Point-in-Time (EPiT) concept (usually a separate subscription is required for this content). Most of the economic time series, such as GDP, employment or inflation figures are undergoing many revisions on their way. So that US GDP value undertakes two consecutive revisions after the initial release, after which the number is revised periodically when e.g. either the base year of calculation or seasonal adjustment are changed. For predictive exercies it is important to obtain the actual values as they were known at the time of releases (otherwise the data will be contaminated by look-ahead bias). 
+
+EPiT allows user to request such historical data. For example, the following method retrieves the initial estimate and first revisions of the 2010-Q1 US GDP, as well as the dates when the data was published:
+
+	res = DWE.get_epit_revisions('USGDP...D', period='2010-02-15')
+	
+The period here should contain a date which falls within a time period of interest (so any date from '2010-01-01' to '2010-03-31' will result in the same output).
+
+Another useful concept is a concept of "vintage" of a data, which defines when the particular series was released. This concept is widely used in economics, see for example [ALFRED database](https://alfred.stlouisfed.org/) of St. Louis Fed and their discussions about [capturing data as it happens](https://alfred.stlouisfed.org/docs/alfred_capturing_data.pdf).
+
+All vintages of the economic indicator could be summarized in a vintage matrix, that represents a DataFrame where columns correspond to a particular period (quarter or month) for the reported statistic and index represents timestamps at which these values were released by the respective official agency. I.e. every line corresponds to all available reported values by the given date. 
+
+For example for the US GDP:
+
+	res = DWE.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
+	
+The response is:
+
+	            2015-02-15  2015-05-15  2015-08-15  2015-11-15  \
+	2015-04-29    16304.80         NaN         NaN         NaN
+	2015-05-29    16264.10         NaN         NaN         NaN
+	2015-06-24    16287.70         NaN         NaN         NaN
+	2015-07-30    16177.30   16270.400         NaN         NaN
+	2015-08-27    16177.30   16324.300         NaN         NaN
+	2015-09-25    16177.30   16333.600         NaN         NaN
+	2015-10-29    16177.30   16333.600   16394.200         NaN
+	2015-11-24    16177.30   16333.600   16417.800         NaN
+	...
+
+From the matrix it is seen for example, that the advance GDP estimate
+for 2015-Q1 (corresponding to 2015-02-15) was released on 2015-04-29
+and was equal to 16304.80 (B USD). The first revision (16264.10) has happened
+on 2015-05-29 and the second (16287.70) - on 2015-06-24. On 2015-07-30
+the advance GDP figure for 2015-Q2 was released (16270.400) together
+with update on the 2015-Q1 value (16177.30) and so on.
 
 
 ## Resources
