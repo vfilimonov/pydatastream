@@ -55,9 +55,9 @@ The following command requests daily closing price data for the Apple asset (DWE
 or request daily closing price data for Apple in 2008:
 
 	data = DWE.get_price('@AAPL', date_from='2008', date_to='2009')
-	print data.head()
 
-The data is retrieved as pandas.DataFrame object, which can be plotted:
+
+The data is retrieved as a `pandas.DataFrame` object, which can be easilly plotted:
 
 	data.plot()
 
@@ -161,6 +161,42 @@ Another example of use of static requests is a cross-section of time-series. The
 
 ## Advanced use
 
+### Some useful functionality of Datastream
+
+Some of examples are taken from [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) and [description of rDatastream package](https://github.com/fcocquemas/rdatastream).
+
+Get some reference information on a security with `"~XREF"`, including ISIN, industry, etc.
+
+	res = DWE.request('U:IBM~XREF')
+	print DWE.extract_data(res)
+
+Convert the currency e.g. to Euro with `"~~EUR"`
+
+    res = DWE.fetch('U:IBM(P)~~EUR', date_from='2013-09-01')
+    print res.head()
+
+### Datastream Functions
+
+Datastream also allows to apply a number of functions to the series, which are caculated on the server side. Given the flexibility of pandas library in all types of data transformation, this functionality is not really needed for python users. However I will briefly describe it for the sake of completeness.
+
+Functions have a format `FUNC#(mnemonic,parameter)`. For example, calculating moving average on 20 days on the prices of IBM:
+
+	res = DWE.fetch('MAV#(U:IBM,20D)', date_from='2013-09-01')
+	
+Functions could be combined, e.g. calculating moving 3 day percentage change on 20 days moving average:
+
+	res = DWE.fetch('PCH#(MAV#(U:IBM,20D),3D)', date_from='2013-09-01')
+	
+Calculate percentage quarter-on-quarter change for the US real GDP (constant prices, seasonally adjusted):
+
+	res = DWE.fetch('PCH#(USGDP...D,1Q)', date_from='1990-01-01')
+ 
+Calculate year-on-year difference (actual change) for the UK real GDP (constant prices, seasonally adjusted):
+
+	res = DWE.fetch('ACH#(UKGDP...D,1Y)', date_from='1990-01-01')
+
+Documentation on the available functions are available on the [Thompson Reuters webhelp](http://product.datastream.com/navigator/advancehelpfiles/functions/webhelp/hfunc.htm).
+
 ### Using custom requests
 
 The module has a general-purpose function `request` that can be used for fetching data with custom requests. This function returns raw data in format of `suds` package. Data can be used directly or parsed later with the `parse_record` method:
@@ -174,30 +210,6 @@ The module has a general-purpose function `request` that can be used for fetchin
 	print data['MV']
 
 Information about mnemonics and syntax of the request string can be found in [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html).
-
-### Some useful tips with the Datastream syntax
-
-Some of examples are taken from [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) and [description of rDatastream package](https://github.com/fcocquemas/rdatastream).
-
-#### Get performance information of a particular stock
-
-	res = DWE.fetch('@AAPL~PERF', date_from='2011-09-01')
-	print res.head()
-
-#### Get some reference information on a security with `"~XREF"`, including ISIN, industry, etc.
-
-	res = DWE.request('U:IBM~XREF')
-	print DWE.extract_data(res)
-
-#### Convert the currency e.g. to Euro with `"~~EUR"`
-
-    res = DWE.fetch('U:IBM(P)~~EUR', date_from='2013-09-01')
-    print res.head()
-
-#### Calculate moving average on 20 days
-
-	res = DWE.fetch('MAV#(U:IBM,20D)', date_from='2013-09-01')
-	print res.head()
 
 ### Performing several requests at once
 
