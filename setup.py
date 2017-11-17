@@ -18,7 +18,7 @@ GitHub (https://github.com/vfilimonov/pydatastream/blob/master/README.md).
 """
 
 _URL = 'http://github.com/vfilimonov/pydatastream'
-_VERSION = '0.5.0'
+_VERSION = '0.5.1'
 
 setup(name='PyDatastream',
       version=_VERSION,
