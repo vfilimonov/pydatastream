@@ -2,7 +2,7 @@ import pandas as pd
 import datetime as dt
 import warnings
 from suds.client import Client
-
+import re
 # Python3-safe basesctring Method
 # http://www.rfk.id.au/blog/entry/preparing-pyenchant-for-python-3/
 try:
@@ -328,8 +328,8 @@ class Datastream(object):
 
         # Filter metadata
         meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
-        fields = [x.replace(suffix, '') for x in fields
-                  if not any([y in x for y in meta_fields])]
+        ields = [re.sub(r'(_\d*)', '', x) for x in fields
+                 if not any([y in x for y in meta_fields])]
 
         if 'DATE' + suffix in record:
             date = record['DATE' + suffix]
