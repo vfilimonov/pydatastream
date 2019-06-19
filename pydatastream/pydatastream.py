@@ -328,7 +328,7 @@ class Datastream(object):
 
         # Filter metadata
         meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
-        ields = [re.sub(r'(_\d*)', '', x) for x in fields
+        fields = [re.sub(r'(_\d*)', '', x) for x in fields
                  if not any([y in x for y in meta_fields])]
 
         if 'DATE' + suffix in record:
