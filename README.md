@@ -1,3 +1,10 @@
+**Important note**: Datastream data through DataWorksEnterprise (DWE) Web Service was discontinued on 30th June 2019. As of 1st July 2019, Datastream content is delivered through Datastream Web Services (DSWS).
+
+At the moment pydatastream library does not support the DSWS framework and thus it could not fetch any data. The library will be changed to a new framework in the nearest future.
+
+
+---
+
 # PyDatastream
 
 PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/) (DWE) SOAP API (non free), with some convenience functions for retrieving Datastream data specifically. This package requires valid credentials for this API.
