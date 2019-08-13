@@ -65,6 +65,8 @@ def _parse_dates(dates):
             1565817068486       -> 2019-08-14T21:11:08.486000000
             1565568000000+0000  -> 2019-08-12T00:00:00.000000000
     """
+    if dates is None:
+        return None
     res = pd.to_datetime(pd.Series(dates).str[6:6 + 13].astype(float), unit='ms').values
     return pd.Timestamp(res[0]) if isinstance(dates, basestring) else res
 
@@ -191,7 +193,7 @@ class Datastream(object):
     ###########################################################################
     @staticmethod
     def construct_request(ticker, fields=None, date_from=None, date_to=None,
-                          freq=None, static=False, tag=None, IsExpression=None,
+                          freq=None, static=False, IsExpression=None,
                           return_names=True):
         """Construct a request string for querying TR DWE.
 
@@ -307,20 +309,28 @@ class Datastream(object):
         return self.parse_response(res)['STATS'].T.iloc[:, 0]
 
     #################################################################################
-    def fetch(self, tickers, fields=None, date=None, date_from=None, date_to=None,
-              freq='D', only_data=True, static=False):
-        """Fetch data from TR DWE.
+    def fetch(self, tickers, fields=None, date_from=None, date_to=None,
+              freq=None, static=False, IsExpression=None, return_metadata=False):
+        """Construct a request string for querying TR DWE.
 
-           tickers - ticker or list of tickers
-           fields  - list of fields.
-           date    - date for a single-date query
+           tickers - ticker or symbol, or list of symbols
+           fields  - field or list of fields
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
-           only_data - if True then metadata will not be returned
-           static  - if True "static" request is created (i.e. not a series).
-                     In this case 'date_from', 'date_to' and 'freq' are ignored
+           static  - True for static (snapshot) requests
+           IsExpression - if True, it will explicitly assume that list of tickers
+                          contain expressions. Otherwise it will try to infer it.
 
-           In case list of tickers is requested, a MultiIndex-dataframe is returned.
+           Note: several fields should be passed as a list, and not as a
+                 comma-separated string!
+
+           Result format depends on the number of requested tickers and fields:
+             - 1 ticker and one field       - Series is returned
+             - 1 ticker and many fields     - DataFrame with fields in column names
+             - many tickers and 1 field     - DataFrame with tickers in column names
+             - many tickers and many fields - DataFrame with hierarchical columns
+             - static request               - DataFrame indexed by tickers and
+                                              with fields in column names
 
            Some of available fields:
            P  - adjusted closing price
@@ -337,37 +347,31 @@ class Datastream(object):
            MTVB - market to book value
            PTVB - price to book value
            ...
-
-           The full list of data fields is available at http://dtg.tfn.com/.
         """
+        req = self.construct_request(tickers, fields, date_from, date_to,
+                                     freq=freq, static=static,
+                                     IsExpression=IsExpression,
+                                     return_names=return_metadata)
+        raw = self.request(req)
+        data, meta = self.parse_response(raw, return_metadata=True)
+
         if static:
-            query = self.construct_request(tickers, fields, date, freq='REP')
+            data = data.stack(index=0).reset_index(level=0, drop=True)
         else:
-            query = self.construct_request(tickers, fields, date, date_from, date_to, freq)
+            num_tickers = len(data.columns.levels[0])
+            num_fields = len(data.columns.levels[1])
 
-        raw = self.request(query)
+            if (num_tickers == 1) and (num_fields > 1):
+                # Only one ticker - drop tickers from columns
+                data.columns = data.columns.droplevel(level=0)
+            elif (num_tickers > 1) and (num_fields == 1):
+                # Only one field - drop tickers from columns
+                data.columns = data.columns.droplevel(level=1)
+            elif (num_tickers == 1) and (num_fields == 1):
+                # Only one field and one ticker - return series
+                data = data.iloc[:, 0]
 
-        if static:
-            data, metadata = self.parse_record_static(raw)
-        elif isinstance(tickers, basestring) or len(tickers) == 1:
-            data, metadata = self.parse_record(raw)
-        elif hasattr(tickers, '__len__'):
-            metadata = pd.DataFrame()
-            data = {}
-            for indx in range(len(tickers)):
-                dat, meta = self.parse_record(raw, indx)
-                data[tickers[indx]] = dat
-                metadata = metadata.append(meta, ignore_index=False)
-
-            data = pd.concat(data)
-        else:
-            raise DatastreamException(('First argument should be either ticker or '
-                                       'list of tickers'))
-
-        if only_data:
-            return data
-        else:
-            return data, metadata
+        return (data, meta) if return_metadata else data
 
     #################################################################################
     def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):
