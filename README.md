@@ -328,7 +328,7 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 * Starting version 0.5.0 the methods `fetch()` for many tickers returns MultiIndex Dataframe instead of former Panel. This follows the development of the Pandas library where the Panels are deprecated starting version 0.20.0 (see [here](http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#whatsnew-0200-api-breaking-deprecate-panel)).
 * As of July 1, 2019 old DataWorksEnterprise (DWE) interfaces (that were used by pydatastream of versions up to 0.5.1) were discontinued by Thompson Reuters. Starting version 0.6 pydatastream uses Datastream Web Services (DSWS) interfaces.
 * Starting version 0.6 the library is no longer guaranteed to support Python 2.
-* Starting version 0.6 the following methods do not exist any more: `version`, `system_info`, `sources` (belong to a discontinued SOAP API); `request` and `request_many` (given that there no query strings anymore, all functionality could be accessed via `fetch` method)
+* Starting version 0.6 the following methods do not exist any more: `version`, `system_info`, `sources` , `status`(belong to a discontinued SOAP API); 
 
 ## Acknowledgements
 

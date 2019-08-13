@@ -104,8 +104,9 @@ class Datastream(object):
         print(_INFO)
 
     ###########################################################################
-    def _api_post(self, url, request):
+    def _api_post(self, method, request):
         """ Call to the POST method of DSWS API """
+        url = self._url + method
         self._last_request = {'url': url, 'request': request, 'error': None}
         try:
             res = requests.post(url, json=request, proxies=self._proxy)
@@ -113,11 +114,20 @@ class Datastream(object):
         except Exception as e:
             self._last_request['error'] = str(e)
             raise
+
         try:
-            self._last_request['response'] = json.loads(self._last_request['response'])
-            return self._last_request['response']
+            response = self._last_request['response'] = json.loads(self._last_request['response'])
         except json.JSONDecodeError:
             raise DatastreamException('Server response could not be parsed')
+
+        if 'Code' in response:
+            code = response['Code']
+            if response['SubCode'] is not None:
+                code += '/' + response['SubCode']
+            errormsg = f'{code}: {response["Message"]}'
+            self._last_request['error'] = errormsg
+            raise DatastreamException(errormsg)
+        return self._last_request['response']
 
     ###########################################################################
     def renew_token(self, username=None, password=None):
@@ -125,15 +135,8 @@ class Datastream(object):
         if username is None or password is None:
             warngins.warn('Username or password is not provided - could not renew token')
             return
-        url = self._url + 'GetToken'
         data = {"UserName": username, "Password": password}
-        res = self._api_post(url, data)
-        if 'Code' in res:
-            code = res['Code']
-            if res['SubCode'] is not None:
-                code += '/' + res['SubCode']
-            raise DatastreamException(f'{code}: {res["Message"]}')
-        self._token = res
+        self._token = self._api_post('GetToken', data)
 
     @property
     def _token_is_expired(self):
@@ -147,135 +150,25 @@ class Datastream(object):
         """ Return actual token and renew it if necessary. """
         if self._token_is_expired:
             self.renew_token(self._username, self._password)
-        return self._token
+        return self._token['TokenValue']
 
     ###########################################################################
-    def request(self, query, source='Datastream',
-                fields=None, options=None, symbol_set=None, tag=None):
-        """General function to retrieve one record in raw format.
-
-           query - query string for DWE system. This may be a simple instrument name
-                   or more complicated request. Refer to the documentation for the
-                   format.
-           source - The name of datasource (default: "Datastream")
-           fields - Fields to be retrieved (used when the requester does not want all
-                    fields to be delivered).
-           options - Options for specific data source. Many of datasources do not require
-                     opptions string. Refer to the documentation of the specific
-                     datasource for allowed syntax.
-           symbol_set - The symbol set used inside the instrument (used for mapping
-                        identifiers within the request. Refer to the documentation for
-                        the details.
-           tag - User-defined cookie that can be used to match up requests and response.
-                 It will be returned back in the response. The string should not be
-                 longer than 256 characters.
+    def request(self, request):
+        """ Generic wrapper to request data in raw format. Request should be
+            properly formatted dictionary (see construct_request() method).
         """
-        if self.show_request:
-            try:
-                print('Request:' + query)
-            except UnicodeEncodeError:
-                print('Request:' + query.encode('utf-8'))
+        data = {'DataRequest': request, 'TokenValue': self.token}
+        return self._api_post('GetData', data)
 
-        rd = self.client.factory.create('RequestData')
-        rd.Source = source
-        rd.Instrument = query
-        if fields is not None:
-            rd.Fields = self.client.factory.create('ArrayOfString')
-            rd.Fields.string = fields
-        rd.SymbolSet = symbol_set
-        rd.Options = options
-        rd.Tag = tag
-
-        self.last_response = self.client.service.RequestRecord(self.userdata, rd, 0)
-
-        return self.last_response
-
-    def request_many(self, queries, source='Datastream',
-                     fields=None, options=None, symbol_set=None, tag=None):
-        """General function to retrieve one record in raw format.
-
-           query - list of query strings for DWE system.
-           source - The name of datasource (default: "Datastream")
-           fields - Fields to be retrieved (used when the requester does not want all
-                    fields to be delivered).
-           options - Options for specific data source. Many of datasources do not require
-                     opptions string. Refer to the documentation of the specific
-                     datasource for allowed syntax.
-           symbol_set - The symbol set used inside the instrument (used for mapping
-                        identifiers within the request. Refer to the documentation for
-                        the details.
-           tag - User-defined cookie that can be used to match up requests and response.
-                 It will be returned back in the response. The string should not be
-                 longer than 256 characters.
-           NB! source, options, symbol_set and tag are assumed to be identical for all
-               requests in the list
+    def request_many(self, list_of_requests):
+        """ Generic wrapper to request multiple requests in raw format.
+            list_of_requests should be a list of properly formatted dictionaries
+            (see construct_request() method).
         """
-        if self.show_request:
-            print(('Requests:', queries))
+        data = {'DataRequests': list_of_requests, 'TokenValue': self.token}
+        return self._api_post('GetDataBundle', data)
 
-        if not isinstance(queries, list):
-            queries = [queries]
-
-        req = self.client.factory.create('ArrayOfRequestData')
-        req.RequestData = []
-        for q in queries:
-            rd = self.client.factory.create('RequestData')
-            rd.Source = source
-            rd.Instrument = q
-            if fields is not None:
-                rd.Fields = self.client.factory.create('ArrayOfString')
-                rd.Fields.string = fields
-            rd.SymbolSet = symbol_set
-            rd.Options = options
-            rd.Tag = tag
-
-            req.RequestData.append(rd)
-
-        return self.client.service.RequestRecords(self.userdata, req, 0)[0]
-
-    #################################################################################
-    def status(self, record=None):
-        """Extract status from the retrieved data and save it as a property of an object.
-           If record with data is not specified then the status of previous operation is
-           returned.
-
-           status - dictionary with data source, string with request and status type,
-                    code and message.
-
-           status['StatusType']: 'Connected' - the data is fine
-                                 'Stale'     - the source is unavailable. It may be
-                                               worthwhile to try again later
-                                 'Failure'   - data could not be obtained (e.g. the
-                                               instrument is incorrect)
-                                 'Pending'   - for internal use only
-           status['StatusCode']: 0 - 'No Error'
-                                 1 - 'Disconnected'
-                                 2 - 'Source Fault'
-                                 3 - 'Network Fault'
-                                 4 - 'Access Denied' (user does not have permissions)
-                                 5 - 'No Such Item' (no instrument with given name)
-                                 11 - 'Blocking Timeout'
-                                 12 - 'Internal'
-        """
-        if record is not None:
-            self.last_status = {'Source': ustr(record['Source']),
-                                'StatusType': ustr(record['StatusType']),
-                                'StatusCode': record['StatusCode'],
-                                'StatusMessage': ustr(record['StatusMessage']),
-                                'Request': ustr(record['Instrument'])}
-        return self.last_status
-
-    def _test_status_and_warn(self):
-        """Test status of last request and post warning if necessary.
-        """
-        status = self.last_status
-        if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], basestring):
-                warnings.warn('[DWE] ' + status['StatusMessage'])
-            elif isinstance(status['StatusMessage'], list):
-                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
-
-    #################################################################################
+    ###########################################################################
     @staticmethod
     def extract_data(raw):
         """Extracts data from the raw response and returns it as a dictionary."""
