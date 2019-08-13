@@ -1,46 +1,23 @@
-**Important note**: Datastream data through DataWorksEnterprise (DWE) Web Service was discontinued on 30th June 2019. As of 1st July 2019, Datastream content is delivered through Datastream Web Services (DSWS).
-
-At the moment pydatastream library does not support the DSWS framework and thus it could not fetch any data. The library will be changed to a new framework in the nearest future.
-
-
----
-
 # PyDatastream
 
-PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/) (DWE) SOAP API (non free), with some convenience functions for retrieving Datastream data specifically. This package requires valid credentials for this API.
+PyDatastream is a Python interface to the Refinitiv Datastream (former Thomson Reuters Datastream) API via Datastream Web Services (DSWS) (non free), with some extra convenience functions. This package requires valid credentials for this API.
 
-## Notes
-
-* This package is mainly meant to access Datastream. However basic functionality (```request``` method) should work for [other Dataworks Enterprise sources](http://dtg.tfn.com/data/).
-* The package is using [Pandas](http://pandas.pydata.org/) library ([GitHub repo](https://github.com/pydata/pandas)), which I found to be the best Python library for time series manipulations. Together with [IPython notebook](http://ipython.org/notebook.html) it is the best open source tool for the data analysis. For quick start with pandas have a look on [tutorial notebook](http://nbviewer.ipython.org/urls/gist.github.com/fonnesbeck/5850375/raw/c18cfcd9580d382cb6d14e4708aab33a0916ff3e/1.+Introduction+to+Pandas.ipynb) and [10-minutes introduction](http://pandas.pydata.org/pandas-docs/stable/10min.html).
-* Alternatives for other scientific computing languages:
-  - MATLAB: [MATLAB datafeed toolbox](http://www.mathworks.fr/help/toolbox/datafeed/datastream.html)
-  - R: [RDatastream](https://github.com/fcocquemas/rdatastream) (in fact PyDatastream was inspired by RDatastream).
-* I am always open for suggestions, critique and bug reports.
-
-## Important (backward incompatible) changes
-
-* Starting version 0.5.0 the methods `fetch()` for many tickers returns MultiIndex Dataframe instead of former Panel. This follows the development of the Pandas library where the Panels are deprecated starting version 0.20.0 (see [here](http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#whatsnew-0200-api-breaking-deprecate-panel)).
+**Note**: Up until version 0.5.x the library has been using SOAP API of DataWorksEnterprise (DWE). As of July 1, 2019 this interface was discontinued by Thompson Reuters, and at the moment Datastream content is delivered through Datastream Web Services (DSWS). Starting version 0.6 pydatastream library is using REST API of DSWS.
 
 ## Installation
-
-First, install prerequisites: `pandas` and `suds` for Python 2; `pandas` and `suds-py3` for Python 3. Both of packages can be installed with the [pip installer](http://www.pip-installer.org/en/latest/):
-
-    pip install pandas
-    pip install suds
-
-For the dependencies of `pandas` please refer to the [pandas documentation](http://pandas.pydata.org/pandas-docs/stable/install.html).
 
 The latest version of PyDatastream is always available at [GitHub](https://github.com/vfilimonov/pydatastream) at the `master` branch. Last release could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream) using `pip`:
 
 	pip install pydatastream
+
+Two external dependencies are [pandas](http://pandas.pydata.org/pandas-docs/stable/install.html) and [requests](https://2.python-requests.org/en/master/).
 
 ## Basic use
 
 All methods to work with the DWE is organized as a class, so first you need to create an object with your valid credentials:
 
     from pydatastream import Datastream
-    DWE = Datastream(username="DS:XXXX000", password="XXX000")
+    DWE = Datastream(username="XXXX000", password="XXX000")
 
 If necessary, the proxy server could be specified here via extra `proxy` parameter (e.g. `proxy='proxyLocation:portNumber'`). If authentication was successful, then you can check out system information (including the version of the DWE):
 
@@ -314,11 +291,13 @@ with update on the 2015-Q1 value (16177.30) and so on.
 
 ## Resources
 
-It is recommended that you read the [Thomson Dataworks Enterprise User Guide](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/documentation/user%20guide.pdf), especially section 4.1.2 on client design. It gives reasonable guidelines for not overloading the servers with too intensive requests.
+- [Datastream Navigator](http://product.datastream.com/navigator/) could be used to look up codes and data types.
 
-For building custom Datastream requests, useful guidelines are given on this somewhat old [Thomson Financial Network](http://dtg.tfn.com/data/DataStream.html) webpage.
+- [Official support webpage](https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y).
 
-If you have access codes for the Datastream Extranet, you can use the [Datastream Navigator](http://product.datastream.com/navigator/) to look up codes and data types. Also if you're a client of Thomson Reuters, you can get support [at the official webpage](https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y).
+- [Official webpage for testing REST API requests](http://product.datastream.com/dswsclient/Docs/TestRestV1.aspx)
+
+- [Documentation for DSWS API calls](http://product.datastream.com/dswsclient/Docs/Default.aspx)
 
 Finally, all these links could be printed in your terminal or iPython notebook by calling
 
@@ -327,7 +306,7 @@ Finally, all these links could be printed in your terminal or iPython notebook b
 
 ### Datastream Navigator
 
-[Datastream Navigator](http://product.datastream.com/navigator/) is the best place to search for mnemonics for a particular security or a list of available datatypes/fields. Credentials for the login are the same as for the API, except for the username which should be `XXXXXX` if the API username is `DS:XXXXXX`.
+[Datastream Navigator](http://product.datastream.com/navigator/) is the best place to search for mnemonics for a particular security or a list of available datatypes/fields.
 
 Once a necessary security is located (either by search or via "Explore" menu item), a short list of most frequently used mnemonics is located right under the chart with the series. Further the small button ">>" next to them open a longer list.
 
@@ -335,6 +314,20 @@ The complete list of dataypes (includig static) for a particular asset class is 
 
 Help for Datastream Navigator is available [here](http://product.datastream.com/WebHelp/Navigator/4.5/HelpFiles/Nav_help.htm).
 
+
+## Notes
+
+* The package is using [Pandas](http://pandas.pydata.org/) library ([GitHub repo](https://github.com/pydata/pandas)), which I found to be the best Python library for time series manipulations. Together with [IPython notebook](http://ipython.org/notebook.html) it is the best open source tool for the data analysis. For quick start with pandas have a look on [tutorial notebook](http://nbviewer.ipython.org/urls/gist.github.com/fonnesbeck/5850375/raw/c18cfcd9580d382cb6d14e4708aab33a0916ff3e/1.+Introduction+to+Pandas.ipynb) and [10-minutes introduction](http://pandas.pydata.org/pandas-docs/stable/10min.html).
+* Alternatives for other scientific computing languages:
+  - MATLAB: [MATLAB datafeed toolbox](http://www.mathworks.fr/help/toolbox/datafeed/datastream.html)
+  - R: [RDatastream](https://github.com/fcocquemas/rdatastream) (in fact PyDatastream was inspired by RDatastream).
+* I am always open for suggestions, critique and bug reports.
+
+## Important (backward incompatible) changes
+
+* Starting version 0.5.0 the methods `fetch()` for many tickers returns MultiIndex Dataframe instead of former Panel. This follows the development of the Pandas library where the Panels are deprecated starting version 0.20.0 (see [here](http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#whatsnew-0200-api-breaking-deprecate-panel)).
+* As of July 1, 2019 old DataWorksEnterprise (DWE) interfaces (that were used by pydatastream of versions up to 0.5.1) were discontinued by Thompson Reuters. Starting version 0.6 pydatastream uses Datastream Web Services (DSWS) interfaces.
+* Starting version 0.6 the library is no longer guaranteed to support Python 2.
 
 ## Acknowledgements
 
