@@ -1,3 +1,10 @@
+**Important note**: Datastream data through DataWorksEnterprise (DWE) Web Service was discontinued on 30th June 2019. As of 1st July 2019, Datastream content is delivered through Datastream Web Services (DSWS).
+
+At the moment pydatastream library does not support the DSWS framework and thus it could not fetch any data. The library will be changed to a new framework in the nearest future.
+
+
+---
+
 # PyDatastream
 
 PyDatastream is a Python interface to the [Thomson Dataworks Enterprise](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/) (DWE) SOAP API (non free), with some convenience functions for retrieving Datastream data specifically. This package requires valid credentials for this API.
@@ -100,20 +107,22 @@ The resulting data frame could be sliced, in order to select all fields for a gi
 or data for the specific field for all tickers:
 
 	print res['MV'].unstack(level=0).head()
-	
+
 #### Note 1: Default field
+
+**Important**: This is the most likely case of "E100, INVALID CODE OR EXPRESSION ENTERED" error message when fetching multiple symbols at once, even if they could be fetched one-by-one. This was observed so far in [exchange rates](https://github.com/vfilimonov/pydatastream/issues/14) and [economic](https://github.com/vfilimonov/pydatastream/issues/16) [series](https://github.com/vfilimonov/pydatastream/issues/11).
 
 There's a slight ambiguity of what "P" stands for.
 For cash equities there's a datatype "P" which correspond to adjusted price.
 However when one does the request to an API, "P" also stands for the default field. And if no fields (datatypes) are supplied, API will assume that the default field "P" is requested.
 
-It looks like, that when one requests several symbols, API will treat the `"P"` (even if it is implied, i.e. no datatypes are specified) strictly as a datatype. So if the datatype "P" does not exist (e.g. for exchange rates: "EUDOLLR" or equity indices: "S&PCOMP") the request will be resulting in an error: e.g. `$$"ER", E100, INVALID CODE OR EXPRESSION ENTERED, USDOLLR(P)`.
+It looks like, that when one requests several symbols, API will treat the `"P"` (even if it is implied, i.e. no datatypes are specified) strictly as a datatype. So if the datatype "P" does not exist (e.g. for exchange rates: "EUDOLLR" or equity indices: "S&PCOMP") the request will be resulting in an error: e.g. here `$$"ER", E100, INVALID CODE OR EXPRESSION ENTERED, USDOLLR(P)`.
 
 So in order retrieve several symbols at once, proper datatypes should be specified. For example:
 
 	res = DWE.fetch(['EUDOLLR','USDOLLR'], fields=['EB','EO'])
 
-	
+
 #### Note 2: error catching
 
 As it will be discussed below, it may be convenient to set up property `raise_on_error` to `False` when fetching data of several tickers. In this case if one or several tickers are misspecified, error will no be raised, but they will not be present in the output data frame. Further, if some field does not exist for some of tickers, but exists for others, the missing data will be replaced with NaNs:
@@ -182,15 +191,15 @@ Datastream also allows to apply a number of functions to the series, which are c
 Functions have a format `FUNC#(mnemonic,parameter)`. For example, calculating moving average on 20 days on the prices of IBM:
 
 	res = DWE.fetch('MAV#(U:IBM,20D)', date_from='2013-09-01')
-	
+
 Functions could be combined, e.g. calculating moving 3 day percentage change on 20 days moving average:
 
 	res = DWE.fetch('PCH#(MAV#(U:IBM,20D),3D)', date_from='2013-09-01')
-	
+
 Calculate percentage quarter-on-quarter change for the US real GDP (constant prices, seasonally adjusted):
 
 	res = DWE.fetch('PCH#(USGDP...D,1Q)', date_from='1990-01-01')
- 
+
 Calculate year-on-year difference (actual change) for the UK real GDP (constant prices, seasonally adjusted):
 
 	res = DWE.fetch('ACH#(UKGDP...D,1Y)', date_from='1990-01-01')
@@ -266,22 +275,22 @@ field:
 
 ## Thomson Reuters Economic Point-in-Time (EPiT) functionality
 
-PyDatastream has two useful methods to work with the Thomson Reuters Economic Point-in-Time (EPiT) concept (usually a separate subscription is required for this content). Most of the economic time series, such as GDP, employment or inflation figures are undergoing many revisions on their way. So that US GDP value undertakes two consecutive revisions after the initial release, after which the number is revised periodically when e.g. either the base year of calculation or seasonal adjustment are changed. For predictive exercies it is important to obtain the actual values as they were known at the time of releases (otherwise the data will be contaminated by look-ahead bias). 
+PyDatastream has two useful methods to work with the Thomson Reuters Economic Point-in-Time (EPiT) concept (usually a separate subscription is required for this content). Most of the economic time series, such as GDP, employment or inflation figures are undergoing many revisions on their way. So that US GDP value undertakes two consecutive revisions after the initial release, after which the number is revised periodically when e.g. either the base year of calculation or seasonal adjustment are changed. For predictive exercies it is important to obtain the actual values as they were known at the time of releases (otherwise the data will be contaminated by look-ahead bias).
 
 EPiT allows user to request such historical data. For example, the following method retrieves the initial estimate and first revisions of the 2010-Q1 US GDP, as well as the dates when the data was published:
 
 	res = DWE.get_epit_revisions('USGDP...D', period='2010-02-15')
-	
+
 The period here should contain a date which falls within a time period of interest (so any date from '2010-01-01' to '2010-03-31' will result in the same output).
 
 Another useful concept is a concept of "vintage" of a data, which defines when the particular series was released. This concept is widely used in economics, see for example [ALFRED database](https://alfred.stlouisfed.org/) of St. Louis Fed and their discussions about [capturing data as it happens](https://alfred.stlouisfed.org/docs/alfred_capturing_data.pdf).
 
-All vintages of the economic indicator could be summarized in a vintage matrix, that represents a DataFrame where columns correspond to a particular period (quarter or month) for the reported statistic and index represents timestamps at which these values were released by the respective official agency. I.e. every line corresponds to all available reported values by the given date. 
+All vintages of the economic indicator could be summarized in a vintage matrix, that represents a DataFrame where columns correspond to a particular period (quarter or month) for the reported statistic and index represents timestamps at which these values were released by the respective official agency. I.e. every line corresponds to all available reported values by the given date.
 
 For example for the US GDP:
 
 	res = DWE.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
-	
+
 The response is:
 
 	            2015-02-15  2015-05-15  2015-08-15  2015-11-15  \
@@ -320,7 +329,7 @@ Finally, all these links could be printed in your terminal or iPython notebook b
 
 [Datastream Navigator](http://product.datastream.com/navigator/) is the best place to search for mnemonics for a particular security or a list of available datatypes/fields. Credentials for the login are the same as for the API, except for the username which should be `XXXXXX` if the API username is `DS:XXXXXX`.
 
-Once a necessary security is located (either by search or via "Explore" menu item), a short list of most frequently used mnemonics is located right under the chart with the series. Further the small button ">>" next to them open a longer list. 
+Once a necessary security is located (either by search or via "Explore" menu item), a short list of most frequently used mnemonics is located right under the chart with the series. Further the small button ">>" next to them open a longer list.
 
 The complete list of dataypes (includig static) for a particular asset class is located in the "Datatype search" menu item. Here the proper asset class should be selected.
 
@@ -341,4 +350,4 @@ PyDatastream library is released under the MIT license.
 
 The license for the library is not extended in any sense to any of the content of the Thomson Reuters Dataworks Enterprise, Datastream, Datastream Navigator or related services. Appropriate contract with Thomson Reuters and valid credentials are required in order to use the API.
 
-Author of the library ([@vfilimonov](https://github.com/vfilimonov)) is not affiliated, associated, authorized, sponsored, endorsed by, or in any way officially connected with Thomson Reuters, or any of its subsidiaries or its affiliates. The name “Thomson Reuters” as well as related names are registered trademarks of Thomson Reuters. 
+Author of the library ([@vfilimonov](https://github.com/vfilimonov)) is not affiliated, associated, authorized, sponsored, endorsed by, or in any way officially connected with Thomson Reuters, or any of its subsidiaries or its affiliates. The name “Thomson Reuters” as well as related names are registered trademarks of Thomson Reuters.
