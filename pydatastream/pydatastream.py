@@ -311,7 +311,7 @@ class Datastream(object):
     #################################################################################
     def fetch(self, tickers, fields=None, date_from=None, date_to=None,
               freq=None, static=False, IsExpression=None, return_metadata=False):
-        """Construct a request string for querying TR DWE.
+        """Fetch the data from Datastream for a set of tickers and parse results.
 
            tickers - ticker or symbol, or list of symbols
            fields  - field or list of fields
@@ -353,10 +353,11 @@ class Datastream(object):
                                      IsExpression=IsExpression,
                                      return_names=return_metadata)
         raw = self.request(req)
+        self._last_response_raw = raw
         data, meta = self.parse_response(raw, return_metadata=True)
 
         if static:
-            data = data.stack(index=0).reset_index(level=0, drop=True)
+            data = data.stack(level=0).reset_index(level=0, drop=True)
         else:
             num_tickers = len(data.columns.levels[0])
             num_fields = len(data.columns.levels[1])
@@ -374,47 +375,32 @@ class Datastream(object):
         return (data, meta) if return_metadata else data
 
     #################################################################################
-    def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):
+    def get_OHLCV(self, ticker, date_from=None, date_to=None):
         """Get Open, High, Low, Close prices and daily Volume for a given ticker.
 
            ticker  - ticker or symbol
-           date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
-
-           Returns pandas.Dataframe with data. If error occurs, then it is printed as
-           a warning.
         """
-        data, meta = self.fetch(ticker + "~OHLCV", None, date,
-                                date_from, date_to, 'D', only_data=False)
-        return data
+        return self.fetch(ticker, ['PO', 'PH', 'PL', 'P', 'VO'], date_from, date_to,
+                          freq='D', return_metadata=False)
 
     def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
         """Get Open, High, Low and Close prices for a given ticker.
 
            ticker  - ticker or symbol
-           date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
-
-           Returns pandas.Dataframe with data. If error occurs, then it is printed as
-           a warning.
         """
-        data, meta = self.fetch(ticker + "~OHLC", None, date,
-                                date_from, date_to, 'D', only_data=False)
-        return data
+        return self.fetch(ticker, ['PO', 'PH', 'PL', 'P'], date_from, date_to,
+                          freq='D', return_metadata=False)
 
-    def get_price(self, ticker, date=None, date_from=None, date_to=None):
+    def get_price(self, ticker, date_from=None, date_to=None):
         """Get Close price for a given ticker.
 
            ticker  - ticker or symbol
-           date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
-
-           Returns pandas.Dataframe with data. If error occurs, then it is printed as
-           a warning.
         """
-        data, meta = self.fetch(ticker, None, date,
-                                date_from, date_to, 'D', only_data=False)
-        return data
+        return self.fetch(ticker, None, date_from, date_to,
+                          freq='D', return_metadata=False)
 
     #################################################################################
     def get_constituents(self, index_ticker, date=None, only_list=False):
