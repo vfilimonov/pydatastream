@@ -51,12 +51,22 @@ http://product.datastream.com/dswsclient/Docs/Default.aspx
 #     except UnicodeEncodeError:
 #         return unicode(x)
 
-def _convert_date(x):
+def _convert_date(date):
     """ Convert date to YYYY-MM-DD """
-    if x is None:
+    if date is None:
         return ''
     else:
         return pd.Timestamp(date).strftime('%Y-%m-%d')
+
+
+def _parse_dates(dates):
+    """ Parse dates
+        Example:
+            1565817068486       -> 2019-08-14T21:11:08.486000000
+            1565568000000+0000  -> 2019-08-12T00:00:00.000000000
+    """
+    res = pd.to_datetime(pd.Series(dates).str[6:6 + 13].astype(float), unit='ms').values
+    return pd.Timestamp(res[0]) if isinstance(dates, basestring) else res
 
 
 class DatastreamException(Exception):
@@ -143,14 +153,17 @@ class Datastream(object):
             warngins.warn('Username or password is not provided - could not renew token')
             return
         data = {"UserName": username, "Password": password}
-        self._token = self._api_post('GetToken', data)
+        self._token = dict(self._api_post('GetToken', data))
+        self._token['TokenExpiry'] = _parse_dates(self._token['TokenExpiry'])
 
     @property
     def _token_is_expired(self):
         if self._token is None:
             return True
-        # TODO: Check if token is expired according to the TokenExpiry field
-        return True
+        # We invalidate token 15 minutes before expiration time
+        if self._token['TokenExpiry'] < pd.Timestamp('now') - pd.Timedelta('15m'):
+            return True
+        return False
 
     @property
     def token(self):
@@ -178,7 +191,8 @@ class Datastream(object):
     ###########################################################################
     @staticmethod
     def construct_request(ticker, fields=None, date_from=None, date_to=None,
-                          freq=None, static=False, tag=None, IsExpression=None):
+                          freq=None, static=False, tag=None, IsExpression=None,
+                          return_names=True):
         """Construct a request string for querying TR DWE.
 
            tickers - ticker or symbol, or list of symbols
@@ -224,15 +238,18 @@ class Datastream(object):
             props.append({'Key': 'IsList', 'Value': True})
         if IsExpression or ('#' in ticker or '(' in ticker or ')' in ticker):
             props.append({'Key': 'IsExpression', 'Value': True})
+        if return_names:
+            props.append({'Key': 'ReturnName', 'Value': True})
         req['Instrument'] = {'Value': ticker, 'Properties': props}
 
         # DataTypes
+        props = [{'Key': 'ReturnName', 'Value': True}] if return_names else []
         if fields is not None:
             if isinstance(fields, basestring):
-                req['DataTypes'].append({'Value': fields})
+                req['DataTypes'].append({'Value': fields, 'Properties': props})
             elif isinstance(fields, list) and len(fields) > 0:
                 for f in fields:
-                    req['DataTypes'].append({'Value': f})
+                    req['DataTypes'].append({'Value': f, 'Properties': props})
             else:
                 raise ValueError('fields should be either string or list/array of strings')
 
@@ -244,144 +261,50 @@ class Datastream(object):
         return req
 
     ###########################################################################
-    @staticmethod
-    def extract_data(raw):
-        """Extracts data from the raw response and returns it as a dictionary."""
-        return {x[0]: x[1] for x in raw['Fields'][0]}
+    def parse_response(self, response, return_metadata=False):
+        """ Parse raw JSON response """
+        res = response['DataResponse']  # We ignore "Properties" - normally they're empty
+        data = res['DataTypeValues']
+        dates = _parse_dates(res['Dates'])
+        res_meta = {_: res[_] for _ in res if _ not in ['DataTypeValues', 'Dates']}
 
-    def parse_record(self, raw, indx=0):
-        """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
-           Returns tuple (data, metadata)
+        # Parse values
+        meta = {}
+        res = {}
+        for d in data:
+            data_type = d['DataType']
+            res[data_type] = {}
+            meta[data_type] = {}
 
-           data - pandas.DataFrame with retrieved data.
-           metadata - pandas.DataFrame with info about symbol, currency, frequency,
-                      displayname and status of given request
-        """
-        suffix = '' if indx == 0 else '_%i' % (indx + 1)
+            for v in d['SymbolValues']:
+                value = v['Value']
+                if v['Type'] == 0:  # Error
+                    if self.raise_on_error:
+                        raise DatastreamException(value)
+                    else:
+                        res[data_type][v['Symbol']] = pd.np.NaN
+                elif v['Type'] == 4:  # Date
+                    res[data_type][v['Symbol']] = _parse_dates(value)
+                else:
+                    res[data_type][v['Symbol']] = value
+                meta[data_type][v['Symbol']] = {_: v[_] for _ in v if _ != 'Value'}
 
-        # Parsing status
-        status = self.status(raw)
+            res[data_type] = pd.DataFrame(res[data_type], index=dates)
 
-        # Testing if no errors
-        if status['StatusType'] != 'Connected':
-            if self.raise_on_error:
-                raise DatastreamException('%s (error %i): %s --> "%s"' %
-                                          (status['StatusType'], status['StatusCode'],
-                                           status['StatusMessage'], status['Request']))
-            else:
-                self._test_status_and_warn()
-                return pd.DataFrame(), {}
+        res = pd.concat(res).unstack(level=0)
+        res_meta['Currencies'] = meta
+        self._last_response_meta = res_meta
 
-        record = self.extract_data(raw)
-        get_field = lambda fldname: record[fldname + suffix]
+        return (res, meta) if return_metadata else res
 
-        try:
-            error = get_field('INSTERROR')
-            if self.raise_on_error:
-                raise DatastreamException('Error: %s --> "%s"' %
-                                          (error, status['Request']))
-            else:
-                self.last_status['StatusMessage'] = error
-                self.last_status['StatusType'] = 'INSTERROR'
-                self._test_status_and_warn()
-                metadata = {'Frequency': '', 'Currency': '', 'DisplayName': '',
-                            'Symbol': '', 'Status': error}
-        except KeyError:
-            # Parsing metadata of the symbol
-            # NB! currency might be returned as symbol thus "unicode" should be used
-            metadata = {'Frequency': ustr(get_field('FREQUENCY')),
-                        'Currency': ustr(get_field('CCY')),
-                        'DisplayName': ustr(get_field('DISPNAME')),
-                        'Symbol': ustr(get_field('SYMBOL')),
-                        'Status': 'OK'}
-
-        # Fields with data
-        if suffix == '':
-            fields = [ustr(x) for x in record if '_' not in x]
-        else:
-            fields = [ustr(x) for x in record if suffix in x]
-
-        # Filter metadata
-        meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
-        fields = [x.replace(suffix, '') for x in fields
-                  if not any([y in x for y in meta_fields])]
-
-        if 'DATE' + suffix in record:
-            date = record['DATE' + suffix]
-        elif 'DATE' in record:
-            date = record['DATE']
-        else:
-            date = None
-
-        if len(fields) > 0 and date is not None:
-            # Check if we have a single value or a series
-            if isinstance(date, dt.datetime):
-                data = pd.DataFrame({x: [get_field(x)] for x in fields},
-                                    index=[date])
-            else:
-                data = pd.DataFrame({x: get_field(x)[0] for x in fields},
-                                    index=date[0])
-        else:
-            data = pd.DataFrame()
-
-        metadata = pd.DataFrame(metadata, index=[indx])
-        metadata = metadata[['Symbol', 'DisplayName', 'Currency', 'Frequency', 'Status']]
-        return data, metadata
-
-    def parse_record_static(self, raw):
-        """Parse raw data (that is retrieved by static request) and return pandas.DataFrame.
-           Returns tuple (data, metadata)
-
-           data - pandas.DataFrame with retrieved data.
-           metadata - pandas.DataFrame with info about symbol, currency, frequency,
-                      displayname and status of given request
-        """
-        # Parsing status
-        status = self.status(raw)
-
-        # Testing if no errors
-        if status['StatusType'] != 'Connected':
-            if self.raise_on_error:
-                raise DatastreamException('%s (error %i): %s --> "%s"' %
-                                          (status['StatusType'], status['StatusCode'],
-                                           status['StatusMessage'], status['Request']))
-            else:
-                self._test_status_and_warn()
-                return pd.DataFrame(), {}
-
-        # Convert record to dict
-        record = self.extract_data(raw)
-
-        try:
-            error = record['INSTERROR']
-            if self.raise_on_error:
-                raise DatastreamException('Error: %s --> "%s"' %
-                                          (error, status['Request']))
-            else:
-                self.last_status['StatusMessage'] = error
-                self.last_status['StatusType'] = 'INSTERROR'
-                self._test_status_and_warn()
-                return pd.DataFrame(), {'Status': error, 'Date': None}
-        except KeyError:
-            metadata = {'Status': 'OK', 'Date': ''}
-
-        # All fields that are available
-        fields = [x for x in record if '_' not in x]
-        metadata['Date'] = record['DATE']
-        fields.remove('DATE')
-
-        # Number of elements
-        num = len([x[0] for x in record if 'SYMBOL' in x])
-
-        # field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, indx: field if indx == 0 else field + '_%i' % (indx + 1)
-
-        # Construct pd.DataFrame
-        res = pd.DataFrame({fld: [record[fld_name(fld, ind)]
-                                  if fld_name(fld, ind) in record else ''
-                                  for ind in range(num)]
-                            for fld in fields})
-        return res, metadata
+    ###########################################################################
+    def usage_statistics(self, date=None):
+        """ Request usage statistics """
+        req = {'Instrument': {'Value': 'STATS'},
+               'DataTypes': [{'Value': 'DS.USERSTATS'}],
+               'Date': {'Kind': 0, 'Start': _convert_date(date)}}
+        res = self.request(req)
+        return self.parse_response(res)['STATS'].T.iloc[:, 0]
 
     #################################################################################
     def fetch(self, tickers, fields=None, date=None, date_from=None, date_to=None,
