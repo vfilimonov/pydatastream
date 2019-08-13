@@ -67,7 +67,8 @@ def _parse_dates(dates):
     """
     if dates is None:
         return None
-    res = pd.to_datetime(pd.Series(dates).str[6:6 + 13].astype(float), unit='ms').values
+    res = pd.Series(dates).str[6:-2].str.replace('+0000', '', regex=False)
+    res = pd.to_datetime(res.astype(float), unit='ms').values
     return pd.Timestamp(res[0]) if isinstance(dates, basestring) else res
 
 
@@ -415,19 +416,12 @@ class Datastream(object):
                            for large indices like Russel-3000. If only_list=True,
                            then only the list of symbols and names are retrieved.
         """
-        if date is not None:
-            str_date = pd.to_datetime(date).strftime('%m%y')
+        if only_list:
+            fields = ['MNEM', 'NAME']
         else:
-            str_date = ''
-        # Note: ~XREF is equal to the following large request
-        # ~REP~=DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,INDXFS,INDXL,
-        #       INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE
-        fields = '~REP~=NAME' if only_list else '~XREF'
-        query = 'L' + index_ticker + str_date + fields
-        raw = self.request(query)
-
-        res, metadata = self.parse_record_static(raw)
-        return res
+            fields = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
+                      'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
+        return self.fetch('L' + index_ticker, fields, date_from=date, static=True)
 
     #################################################################################
     def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):
@@ -478,7 +472,7 @@ class Datastream(object):
             except DatastreamException:
                 continue
             res[date] = _tmp
-        return pd.concat(res).RELV.unstack()
+        return pd.concat(res).unstack()
 
     #################################################################################
     def get_epit_revisions(self, mnemonic, period, relh50=False):
@@ -494,9 +488,9 @@ class Datastream(object):
             set to True (in which case up to 50 values is returned).
         """
         if relh50:
-            data = self.fetch(mnemonic, 'RELH50', date=period, static=True)
+            data = self.fetch(mnemonic, 'RELH50', date_from=period, static=True)
         else:
-            data = self.fetch(mnemonic, 'RELH', date=period, static=True)
+            data = self.fetch(mnemonic, 'RELH', date_from=period, static=True)
         data = data.iloc[0]
 
         # Parse the response
