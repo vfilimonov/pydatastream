@@ -1,7 +1,8 @@
 import pandas as pd
 import datetime as dt
 import warnings
-from suds.client import Client
+import json
+import requests
 
 # Python3-safe basesctring Method
 # http://www.rfk.id.au/blog/entry/preparing-pyenchant-for-python-3/
@@ -20,12 +21,9 @@ else:
     bytes = str
     basestring = basestring
 
-
-# TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
-#       datatypes for each value (thus response is ~2 times smaller)
 # TODO: QTEALL: all available active tickers for the company (e.g. "U:IBM~=QTEALL~REP")
 
-WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
+_URL = 'http://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
 _INFO = """PyDatastream documentation (GitHub):
 https://github.com/vfilimonov/pydatastream
@@ -33,116 +31,125 @@ https://github.com/vfilimonov/pydatastream
 Datastream Navigator:
 http://product.datastream.com/navigator/
 
-Datastream documentation:
-http://dtg.tfn.com/data/DataStream.html
-
-Dataworks Enterprise documentation:
-http://dataworks.thomson.com/Dataworks/Enterprise/1.0/
-
-Thomson Reuters Datastream support:
+Official support
 https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y
+
+Webpage for testing REST API requests
+http://product.datastream.com/dswsclient/Docs/TestRestV1.aspx
+
+Documentation for DSWS API
+http://product.datastream.com/dswsclient/Docs/Default.aspx
 """
 
 
-def ustr(x):
-    """Unicode-safe version of str()"""
-    try:
-        return str(x)
-    except UnicodeEncodeError:
-        return unicode(x)
+###############################################################################
+###############################################################################
+# def _ustr(x):
+#     """Unicode-safe version of str()"""
+#     try:
+#         return str(x)
+#     except UnicodeEncodeError:
+#         return unicode(x)
 
 
 class DatastreamException(Exception):
     pass
 
 
+###############################################################################
+# Main Datastream class
+###############################################################################
 class Datastream(object):
-    def __init__(self, username, password, raise_on_error=True, show_request=False,
-                 proxy=None, **kwargs):
-        """Establish a connection to the Thomson Reuters Dataworks Enterprise
-           (DWE) server (former Thomson Reuters Datastream).
+    def __init__(self, username, password, raise_on_error=True, proxy=None, **kwargs):
+        """Establish a connection to the Python interface to the Refinitiv Datastream
+           (former Thomson Reuters Datastream) API via Datastream Web Services (DSWS).
 
            username / password - credentials for the DWE account.
            raise_on_error - If True then error request will raise a "DatastreamException",
                             otherwise either empty dataframe or partially
                             retrieved data will be returned
-           show_request - If True, then every time a request string will be printed
            proxy - URL for the proxy server. Valid values:
                    (a) None: no proxy is used
-                   (b) string of format "proxyLocaion:portNumber": This proxy
-                       address will be used for both HTTP and HTTPS (by default
-                       HTTP protocol is used)
-                   (c) dict of format {'http': 'location:port', 'https': 'location':port}
-                       in case when addresses/ports for HTTP and HTTPS proxies are
-                       different.
+                   (b) string of format "host:port" or "username:password@host:port"
 
-           A custom WSDL url (if necessary for some reasons) could be provided
+           Note: credentials will be saved in memory. In case if this is not
+                 desirable for security reasons, call the constructor having None
+                 instead of values and manually call renew_token(username, password)
+                 when needed.
+
+           A custom REST API url (if necessary for some reasons) could be provided
            via "url" parameter.
         """
-        self.show_request = show_request
         self.raise_on_error = raise_on_error
-        self.last_status = None     # Will contain status of last request
-
-        self._url = kwargs.pop('url', WSDL_URL)
+        self.last_request = None  # Data from the last request
 
         # Setting up proxy parameters if necessary
-        if proxy is not None:
-            if isinstance(proxy, basestring):
-                proxy = {'http': proxy, 'https': proxy}
-            elif not isinstance(proxy, dict):
-                raise ValueError('Proxy should be either None, or string or dict.')
-            self.client = Client(self._url, username=username, password=password, proxy=proxy)
+        if isinstance(proxy, basestring):
+            self._proxy = {'http': proxy, 'https': proxy}
+        elif proxy is None:
+            self._proxy = None
         else:
-            self.client = Client(self._url, username=username, password=password)
+            raise ValueError('Proxy parameter should be either None or string')
 
-        # Trying to connect
-        try:
-            self.ver = self.version()
-        except:
-            raise DatastreamException('Can not retrieve the data.')
+        self._url = kwargs.pop('url', _URL)
+        self._username = username
+        self._password = password
+        # request new token
+        self.renew_token(username, password)
 
-        # Creating UserData object
-        self.userdata = self.client.factory.create('UserData')
-        self.userdata.Username = username
-        self.userdata.Password = password
-
-        self.last_response = None
-
-        # Check available data sources
-        if 'Datastream' not in self.sources():
-            warnings.warn("'Datastream' source is not available for given subscription!")
-
+    ###########################################################################
     @staticmethod
     def info():
+        """ Some useful links """
         print(_INFO)
 
-    def version(self):
-        """Return version of the TR DWE."""
-        res = self.client.service.Version()
-        return '.'.join([ustr(x) for x in res[0]])
+    ###########################################################################
+    def _api_post(self, url, request):
+        """ Call to the POST method of DSWS API """
+        self._last_request = {'url': url, 'request': request, 'error': None}
+        try:
+            res = requests.post(url, json=request, proxies=self._proxy)
+            self._last_request['response'] = res.text
+        except Exception as e:
+            self._last_request['error'] = str(e)
+            raise
+        try:
+            self._last_request['response'] = json.loads(self._last_request['response'])
+            return self._last_request['response']
+        except json.JSONDecodeError:
+            raise DatastreamException('Server response could not be parsed')
 
-    def system_info(self):
-        """Return system information."""
-        res = self.client.service.SystemInfo()
-        res = {ustr(x[0]): x[1] for x in res[0]}
+    ###########################################################################
+    def renew_token(self, username=None, password=None):
+        """ Request new token from the server """
+        if username is None or password is None:
+            warngins.warn('Username or password is not provided - could not renew token')
+            return
+        url = self._url + 'GetToken'
+        data = {"UserName": username, "Password": password}
+        res = self._api_post(url, data)
+        if 'Code' in res:
+            code = res['Code']
+            if res['SubCode'] is not None:
+                code += '/' + res['SubCode']
+            raise DatastreamException(f'{code}: {res["Message"]}')
+        self._token = res
 
-        to_str = lambda arr: '.'.join([ustr(x) for x in arr[0]])
-        res['OSVersion'] = to_str(res['OSVersion'])
-        res['RuntimeVersion'] = to_str(res['RuntimeVersion'])
-        res['Version'] = to_str(res['Version'])
+    @property
+    def _token_is_expired(self):
+        if self._token is None:
+            return True
+        # TODO: Check if token is expired according to the TokenExpiry field
+        return True
 
-        res['Name'] = ustr(res['Name'])
-        res['Server'] = ustr(res['Server'])
-        res['LocalNameCheck'] = ustr(res['LocalNameCheck'])
-        res['UserHostAddress'] = ustr(res['UserHostAddress'])
+    @property
+    def token(self):
+        """ Return actual token and renew it if necessary. """
+        if self._token_is_expired:
+            self.renew_token(self._username, self._password)
+        return self._token
 
-        return res
-
-    def sources(self):
-        """Return available sources of data."""
-        res = self.client.service.Sources(self.userdata, 0)
-        return [ustr(x[0]) for x in res[0]]
-
+    ###########################################################################
     def request(self, query, source='Datastream',
                 fields=None, options=None, symbol_set=None, tag=None):
         """General function to retrieve one record in raw format.
