@@ -23,7 +23,7 @@ else:
 
 # TODO: QTEALL: all available active tickers for the company (e.g. "U:IBM~=QTEALL~REP")
 
-_URL = 'http://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
+_URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
 _INFO = """PyDatastream documentation (GitHub):
 https://github.com/vfilimonov/pydatastream
@@ -50,6 +50,13 @@ http://product.datastream.com/dswsclient/Docs/Default.aspx
 #         return str(x)
 #     except UnicodeEncodeError:
 #         return unicode(x)
+
+def _convert_date(x):
+    """ Convert date to YYYY-MM-DD """
+    if x is None:
+        return ''
+    else:
+        return pd.Timestamp(date).strftime('%Y-%m-%d')
 
 
 class DatastreamException(Exception):
@@ -167,6 +174,74 @@ class Datastream(object):
         """
         data = {'DataRequests': list_of_requests, 'TokenValue': self.token}
         return self._api_post('GetDataBundle', data)
+
+    ###########################################################################
+    @staticmethod
+    def construct_request(ticker, fields=None, date_from=None, date_to=None,
+                          freq=None, static=False, tag=None, IsExpression=None):
+        """Construct a request string for querying TR DWE.
+
+           tickers - ticker or symbol, or list of symbols
+           fields  - field or list of fields.
+           date_from, date_to - date range (used only if "date" is not specified)
+           freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
+           static  - True for static (snapshot) requests
+           IsExpression - if True, it will explicitly assume that list of tickers
+                          contain expressions. Otherwise it will try to infer it.
+
+           Some of available fields:
+           P  - adjusted closing price
+           PO - opening price
+           PH - high price
+           PL - low price
+           VO - volume, which is expressed in 1000's of shares.
+           UP - unadjusted price
+           OI - open interest
+
+           MV - market value
+           EPS - earnings per share
+           DI - dividend index
+           MTVB - market to book value
+           PTVB - price to book value
+           ...
+
+           The full list of data fields is available at http://dtg.tfn.com/.
+        """
+        req = {'Instrument': {}, 'Date': {}, 'DataTypes': []}
+
+        # Instruments
+        if isinstance(ticker, basestring):
+            ticker = ticker
+            IsList = None
+        elif hasattr(ticker, '__len__'):
+            ticker = ','.join(ticker)
+            IsList = True
+        else:
+            raise ValueError('ticker should be either string or list/array of strings')
+        # Properties of instruments
+        props = []
+        if IsList or (',' in ticker):
+            props.append({'Key': 'IsList', 'Value': True})
+        if IsExpression or ('#' in ticker or '(' in ticker or ')' in ticker):
+            props.append({'Key': 'IsExpression', 'Value': True})
+        req['Instrument'] = {'Value': ticker, 'Properties': props}
+
+        # DataTypes
+        if fields is not None:
+            if isinstance(fields, basestring):
+                req['DataTypes'].append({'Value': fields})
+            elif isinstance(fields, list) and len(fields) > 0:
+                for f in fields:
+                    req['DataTypes'].append({'Value': f})
+            else:
+                raise ValueError('fields should be either string or list/array of strings')
+
+        # Dates
+        req['Date'] = {'Start': _convert_date(date_from),
+                       'End': _convert_date(date_to),
+                       'Frequency': freq if freq is not None else '',
+                       'Kind': 0 if static else 1}
+        return req
 
     ###########################################################################
     @staticmethod
@@ -307,59 +382,6 @@ class Datastream(object):
                                   for ind in range(num)]
                             for fld in fields})
         return res, metadata
-
-    #################################################################################
-    @staticmethod
-    def construct_request(ticker, fields=None, date=None,
-                          date_from=None, date_to=None, freq=None):
-        """Construct a request string for querying TR DWE.
-
-           tickers - ticker or symbol
-           fields  - list of fields.
-           date    - date for a single-date query
-           date_from, date_to - date range (used only if "date" is not specified)
-           freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
-                     Use here 'REP' for static requests
-
-           Some of available fields:
-           P  - adjusted closing price
-           PO - opening price
-           PH - high price
-           PL - low price
-           VO - volume, which is expressed in 1000's of shares.
-           UP - unadjusted price
-           OI - open interest
-
-           MV - market value
-           EPS - earnings per share
-           DI - dividend index
-           MTVB - market to book value
-           PTVB - price to book value
-           ...
-
-           The full list of data fields is available at http://dtg.tfn.com/.
-        """
-        if isinstance(ticker, basestring):
-            request = ticker
-        elif hasattr(ticker, '__len__'):
-            request = ','.join(ticker)
-        else:
-            raise ValueError('ticker should be either string or list/array of strings')
-        if fields is not None:
-            if isinstance(fields, basestring):
-                request += '~=' + fields
-            elif isinstance(fields, list) and len(fields) > 0:
-                request += '~=' + ','.join(fields)
-        if date is not None:
-            request += '~@' + pd.to_datetime(date).strftime('%Y-%m-%d')
-        else:
-            if date_from is not None:
-                request += '~' + pd.to_datetime(date_from).strftime('%Y-%m-%d')
-            if date_to is not None:
-                request += '~:' + pd.to_datetime(date_to).strftime('%Y-%m-%d')
-        if freq is not None:
-            request += '~' + freq
-        return request
 
     #################################################################################
     def fetch(self, tickers, fields=None, date=None, date_from=None, date_to=None,
