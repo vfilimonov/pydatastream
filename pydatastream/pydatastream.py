@@ -23,6 +23,9 @@ else:
 
 _URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
+_FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
+              'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
+
 _INFO = """PyDatastream documentation (GitHub):
 https://github.com/vfilimonov/pydatastream
 
@@ -301,11 +304,7 @@ class Datastream(object):
     ###########################################################################
     def usage_statistics(self, date=None):
         """ Request usage statistics """
-        req = {'Instrument': {'Value': 'STATS'},
-               'DataTypes': [{'Value': 'DS.USERSTATS'}],
-               'Date': {'Kind': 0, 'Start': _convert_date(date)}}
-        res = self.request(req)
-        return self.parse_response(res).reset_index(level=0, drop=True).T
+        return self.fetch('STATS', 'DS.USERSTATS', date, static=True).T
 
     #################################################################################
     def fetch(self, tickers, fields=None, date_from=None, date_to=None,
@@ -410,8 +409,7 @@ class Datastream(object):
         if only_list:
             fields = ['MNEM', 'NAME']
         else:
-            fields = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
-                      'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
+            fields = _FLDS_XREF
         return self.fetch('L' + index_ticker, fields, date_from=date, static=True)
 
     def get_all_listings(self, ticker):
@@ -428,6 +426,11 @@ class Datastream(object):
         df = pd.concat(df).swaplevel(0).sort_index()
         df = df[~(df == '').all(axis=1)]
         return df
+
+    def get_codes(self, ticker):
+        """ Get codes and symbols for the given securities
+        """
+        return self.fetch(ticker, _FLDS_XREF, static=True)
 
     #################################################################################
     def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):
