@@ -40,6 +40,9 @@ http://product.datastream.com/dswsclient/Docs/TestRestV1.aspx
 
 Documentation for DSWS API
 http://product.datastream.com/dswsclient/Docs/Default.aspx
+
+Datastream Web Service Developer community
+https://developers.refinitiv.com/eikon-apis/datastream-web-service
 """
 
 
@@ -85,7 +88,7 @@ class Datastream(object):
         """Establish a connection to the Python interface to the Refinitiv Datastream
            (former Thomson Reuters Datastream) API via Datastream Web Services (DSWS).
 
-           username / password - credentials for the DWE account.
+           username / password - credentials for the DSWS account.
            raise_on_error - If True then error request will raise a "DatastreamException",
                             otherwise either empty dataframe or partially
                             retrieved data will be returned
@@ -102,7 +105,6 @@ class Datastream(object):
            via "url" parameter.
         """
         self.raise_on_error = raise_on_error
-        self.last_request = None  # Data from the last request
 
         # Setting up proxy parameters if necessary
         if isinstance(proxy, basestring):
@@ -128,16 +130,16 @@ class Datastream(object):
     def _api_post(self, method, request):
         """ Call to the POST method of DSWS API """
         url = self._url + method
-        self._last_request = {'url': url, 'request': request, 'error': None}
+        self.last_request = {'url': url, 'request': request, 'error': None}
         try:
             res = requests.post(url, json=request, proxies=self._proxy)
-            self._last_request['response'] = res.text
+            self.last_request['response'] = res.text
         except Exception as e:
-            self._last_request['error'] = str(e)
+            self.last_request['error'] = str(e)
             raise
 
         try:
-            response = self._last_request['response'] = json.loads(self._last_request['response'])
+            response = self.last_request['response'] = json.loads(self.last_request['response'])
         except json.JSONDecodeError:
             raise DatastreamException('Server response could not be parsed')
 
@@ -146,9 +148,9 @@ class Datastream(object):
             if response['SubCode'] is not None:
                 code += '/' + response['SubCode']
             errormsg = f'{code}: {response["Message"]}'
-            self._last_request['error'] = errormsg
+            self.last_request['error'] = errormsg
             raise DatastreamException(errormsg)
-        return self._last_request['response']
+        return self.last_request['response']
 
     ###########################################################################
     def renew_token(self, username=None, password=None):
@@ -197,7 +199,7 @@ class Datastream(object):
     def construct_request(ticker, fields=None, date_from=None, date_to=None,
                           freq=None, static=False, IsExpression=None,
                           return_names=True):
-        """Construct a request string for querying TR DWE.
+        """Construct a request string for querying TR DSWS.
 
            tickers - ticker or symbol, or list of symbols
            fields  - field or list of fields.
@@ -265,9 +267,7 @@ class Datastream(object):
         return req
 
     ###########################################################################
-    def parse_response(self, response, return_metadata=False):
-        """ Parse raw JSON response """
-        res = response['DataResponse']  # We ignore "Properties" - normally they're empty
+    def _parse_one(self, res):
         data = res['DataTypeValues']
         dates = _parse_dates(res['Dates'])
         res_meta = {_: res[_] for _ in res if _ not in ['DataTypeValues', 'Dates']}
@@ -297,9 +297,28 @@ class Datastream(object):
 
         res = pd.concat(res).unstack(level=1).T.sort_index()
         res_meta['Currencies'] = meta
-        self._last_response_meta = res_meta
+        return res, res_meta
 
-        return (res, meta) if return_metadata else res
+    def parse_response(self, response, return_metadata=False):
+        """ Parse raw JSON response
+
+            If return_metadata is True, then result is tuple (dataframe, metadata),
+            where metadata is a dictionary. Otherwise only dataframe is returned.
+
+            In case of response being constructed from several requests (method
+            request_many()), then the result is a list of parsed responses. Here
+            again, if return_metadata is True then each element is a tuple
+            (dataframe, metadata), otherwise each element is a dataframe.
+        """
+        if 'DataResponse' in response:  # Single request
+            res, meta = self._parse_one(response['DataResponse'])
+            self._last_response_meta = meta
+            return (res, meta) if return_metadata else res
+
+        elif 'DataResponses' in response:  # Multiple requests
+            results = [self._parse_one(r) for r in response['DataResponses']]
+            self._last_response_meta = [_[1] for _ in results]
+            return results if return_metadata else [_[0] for _ in results]
 
     ###########################################################################
     def usage_statistics(self, date=None):
@@ -445,7 +464,7 @@ class Datastream(object):
 
             For example:
 
-            >> DWE.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
+            >> DS.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
 
                         2015-02-15  2015-05-15  2015-08-15  2015-11-15  \
             2015-04-29    16304.80         NaN         NaN         NaN
