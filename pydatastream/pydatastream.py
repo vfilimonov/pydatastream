@@ -21,8 +21,6 @@ else:
     bytes = str
     basestring = basestring
 
-# TODO: QTEALL: all available active tickers for the company (e.g. "U:IBM~=QTEALL~REP")
-
 _URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
 _INFO = """PyDatastream documentation (GitHub):
@@ -393,7 +391,7 @@ class Datastream(object):
            ticker  - ticker or symbol
            date_from, date_to - date range (used only if "date" is not specified)
         """
-        return self.fetch(ticker, None, date_from, date_to,
+        return self.fetch(ticker, 'P', date_from, date_to,
                           freq='D', return_metadata=False)
 
     #################################################################################
@@ -415,6 +413,21 @@ class Datastream(object):
             fields = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
                       'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
         return self.fetch('L' + index_ticker, fields, date_from=date, static=True)
+
+    def get_all_listings(self, ticker):
+        """ Get all listings and their symbols for the given security
+        """
+        res = self.fetch(ticker, 'QTEALL', static=True)
+        columns = list(set([_[:2] for _ in res.columns]))
+
+        # Reformat the output
+        df = {}
+        for ind in range(1, 21):
+            cols = {f'{c}{ind:02d}': c for c in columns}
+            df[ind] = res[cols.keys()].rename(columns=cols)
+        df = pd.concat(df).swaplevel(0).sort_index()
+        df = df[~(df == '').all(axis=1)]
+        return df
 
     #################################################################################
     def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):
