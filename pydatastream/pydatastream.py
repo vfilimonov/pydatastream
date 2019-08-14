@@ -294,7 +294,7 @@ class Datastream(object):
 
             res[data_type] = pd.DataFrame(res[data_type], index=dates)
 
-        res = pd.concat(res).unstack(level=0)
+        res = pd.concat(res).unstack(level=1).T.sort_index()
         res_meta['Currencies'] = meta
         self._last_response_meta = res_meta
 
@@ -307,7 +307,7 @@ class Datastream(object):
                'DataTypes': [{'Value': 'DS.USERSTATS'}],
                'Date': {'Kind': 0, 'Start': _convert_date(date)}}
         res = self.request(req)
-        return self.parse_response(res)['STATS'].T.iloc[:, 0]
+        return self.parse_response(res).reset_index(level=0, drop=True).T
 
     #################################################################################
     def fetch(self, tickers, fields=None, date_from=None, date_to=None,
@@ -322,16 +322,18 @@ class Datastream(object):
            IsExpression - if True, it will explicitly assume that list of tickers
                           contain expressions. Otherwise it will try to infer it.
 
-           Note: several fields should be passed as a list, and not as a
-                 comma-separated string!
+           Notes: - several fields should be passed as a list, and not as a
+                    comma-separated string!
+                  - if no fields are provided, then the default field will be
+                    fetched. In this case the column might not have any name
+                    in the resulting dataframe.
 
            Result format depends on the number of requested tickers and fields:
-             - 1 ticker and one field       - Series is returned
-             - 1 ticker and many fields     - DataFrame with fields in column names
-             - many tickers and 1 field     - DataFrame with tickers in column names
-             - many tickers and many fields - DataFrame with hierarchical columns
-             - static request               - DataFrame indexed by tickers and
-                                              with fields in column names
+             - 1 ticker         - DataFrame with fields in column names
+             - many tickers     - DataFrame with fields in column names and
+                                  MultiIndex (ticker, date)
+             - static request   - DataFrame indexed by tickers and with fields
+                                  in column names
 
            Some of available fields:
            P  - adjusted closing price
@@ -358,20 +360,11 @@ class Datastream(object):
         data, meta = self.parse_response(raw, return_metadata=True)
 
         if static:
-            data = data.stack(level=0).reset_index(level=0, drop=True)
-        else:
-            num_tickers = len(data.columns.levels[0])
-            num_fields = len(data.columns.levels[1])
-
-            if (num_tickers == 1) and (num_fields > 1):
-                # Only one ticker - drop tickers from columns
-                data.columns = data.columns.droplevel(level=0)
-            elif (num_tickers > 1) and (num_fields == 1):
-                # Only one field - drop tickers from columns
-                data.columns = data.columns.droplevel(level=1)
-            elif (num_tickers == 1) and (num_fields == 1):
-                # Only one field and one ticker - return series
-                data = data.iloc[:, 0]
+            # Static request - drop date from MultiIndex
+            data = data.reset_index(level=1, drop=True)
+        elif len(data.index.levels[0]) == 1:
+            # Only one ticker - drop tickers from MultiIndex
+            data = data.reset_index(level=0, drop=True)
 
         return (data, meta) if return_metadata else data
 
@@ -472,7 +465,7 @@ class Datastream(object):
             except DatastreamException:
                 continue
             res[date] = _tmp
-        return pd.concat(res).unstack()
+        return pd.concat(res).RELV.unstack()
 
     #################################################################################
     def get_epit_revisions(self, mnemonic, period, relh50=False):
