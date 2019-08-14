@@ -1,7 +1,8 @@
 import pandas as pd
 import datetime as dt
 import warnings
-from suds.client import Client
+import json
+import requests
 
 # Python3-safe basesctring Method
 # http://www.rfk.id.au/blog/entry/preparing-pyenchant-for-python-3/
@@ -20,12 +21,10 @@ else:
     bytes = str
     basestring = basestring
 
+_URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
-# TODO: RequestRecordAsXML is more efficient than RequestRecord as it does not return
-#       datatypes for each value (thus response is ~2 times smaller)
-# TODO: QTEALL: all available active tickers for the company (e.g. "U:IBM~=QTEALL~REP")
-
-WSDL_URL = 'http://dataworks.thomson.com/Dataworks/Enterprise/1.0/webserviceclient.asmx?WSDL'
+_FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
+              'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
 
 _INFO = """PyDatastream documentation (GitHub):
 https://github.com/vfilimonov/pydatastream
@@ -33,393 +32,182 @@ https://github.com/vfilimonov/pydatastream
 Datastream Navigator:
 http://product.datastream.com/navigator/
 
-Datastream documentation:
-http://dtg.tfn.com/data/DataStream.html
-
-Dataworks Enterprise documentation:
-http://dataworks.thomson.com/Dataworks/Enterprise/1.0/
-
-Thomson Reuters Datastream support:
+Official support
 https://customers.reuters.com/sc/Contactus/simple?product=Datastream&env=PU&TP=Y
+
+Webpage for testing REST API requests
+http://product.datastream.com/dswsclient/Docs/TestRestV1.aspx
+
+Documentation for DSWS API
+http://product.datastream.com/dswsclient/Docs/Default.aspx
+
+Datastream Web Service Developer community
+https://developers.refinitiv.com/eikon-apis/datastream-web-service
 """
 
 
-def ustr(x):
-    """Unicode-safe version of str()"""
-    try:
-        return str(x)
-    except UnicodeEncodeError:
-        return unicode(x)
+###############################################################################
+###############################################################################
+# def _ustr(x):
+#     """Unicode-safe version of str()"""
+#     try:
+#         return str(x)
+#     except UnicodeEncodeError:
+#         return unicode(x)
+
+def _convert_date(date):
+    """ Convert date to YYYY-MM-DD """
+    if date is None:
+        return ''
+    else:
+        return pd.Timestamp(date).strftime('%Y-%m-%d')
+
+
+def _parse_dates(dates):
+    """ Parse dates
+        Example:
+            1565817068486       -> 2019-08-14T21:11:08.486000000
+            1565568000000+0000  -> 2019-08-12T00:00:00.000000000
+    """
+    if dates is None:
+        return None
+    res = pd.Series(dates).str[6:-2].str.replace('+0000', '', regex=False)
+    res = pd.to_datetime(res.astype(float), unit='ms').values
+    return pd.Timestamp(res[0]) if isinstance(dates, basestring) else res
 
 
 class DatastreamException(Exception):
     pass
 
 
+###############################################################################
+# Main Datastream class
+###############################################################################
 class Datastream(object):
-    def __init__(self, username, password, raise_on_error=True, show_request=False,
-                 proxy=None, **kwargs):
-        """Establish a connection to the Thomson Reuters Dataworks Enterprise
-           (DWE) server (former Thomson Reuters Datastream).
+    def __init__(self, username, password, raise_on_error=True, proxy=None, **kwargs):
+        """Establish a connection to the Python interface to the Refinitiv Datastream
+           (former Thomson Reuters Datastream) API via Datastream Web Services (DSWS).
 
-           username / password - credentials for the DWE account.
+           username / password - credentials for the DSWS account.
            raise_on_error - If True then error request will raise a "DatastreamException",
                             otherwise either empty dataframe or partially
                             retrieved data will be returned
-           show_request - If True, then every time a request string will be printed
            proxy - URL for the proxy server. Valid values:
                    (a) None: no proxy is used
-                   (b) string of format "proxyLocaion:portNumber": This proxy
-                       address will be used for both HTTP and HTTPS (by default
-                       HTTP protocol is used)
-                   (c) dict of format {'http': 'location:port', 'https': 'location':port}
-                       in case when addresses/ports for HTTP and HTTPS proxies are
-                       different.
+                   (b) string of format "host:port" or "username:password@host:port"
 
-           A custom WSDL url (if necessary for some reasons) could be provided
+           Note: credentials will be saved in memory. In case if this is not
+                 desirable for security reasons, call the constructor having None
+                 instead of values and manually call renew_token(username, password)
+                 when needed.
+
+           A custom REST API url (if necessary for some reasons) could be provided
            via "url" parameter.
         """
-        self.show_request = show_request
         self.raise_on_error = raise_on_error
-        self.last_status = None     # Will contain status of last request
-
-        self._url = kwargs.pop('url', WSDL_URL)
 
         # Setting up proxy parameters if necessary
-        if proxy is not None:
-            if isinstance(proxy, basestring):
-                proxy = {'http': proxy, 'https': proxy}
-            elif not isinstance(proxy, dict):
-                raise ValueError('Proxy should be either None, or string or dict.')
-            self.client = Client(self._url, username=username, password=password, proxy=proxy)
+        if isinstance(proxy, basestring):
+            self._proxy = {'http': proxy, 'https': proxy}
+        elif proxy is None:
+            self._proxy = None
         else:
-            self.client = Client(self._url, username=username, password=password)
+            raise ValueError('Proxy parameter should be either None or string')
 
-        # Trying to connect
-        try:
-            self.ver = self.version()
-        except:
-            raise DatastreamException('Can not retrieve the data.')
+        self._url = kwargs.pop('url', _URL)
+        self._username = username
+        self._password = password
+        # request new token
+        self.renew_token(username, password)
 
-        # Creating UserData object
-        self.userdata = self.client.factory.create('UserData')
-        self.userdata.Username = username
-        self.userdata.Password = password
-
-        self.last_response = None
-
-        # Check available data sources
-        if 'Datastream' not in self.sources():
-            warnings.warn("'Datastream' source is not available for given subscription!")
-
+    ###########################################################################
     @staticmethod
     def info():
+        """ Some useful links """
         print(_INFO)
 
-    def version(self):
-        """Return version of the TR DWE."""
-        res = self.client.service.Version()
-        return '.'.join([ustr(x) for x in res[0]])
-
-    def system_info(self):
-        """Return system information."""
-        res = self.client.service.SystemInfo()
-        res = {ustr(x[0]): x[1] for x in res[0]}
-
-        to_str = lambda arr: '.'.join([ustr(x) for x in arr[0]])
-        res['OSVersion'] = to_str(res['OSVersion'])
-        res['RuntimeVersion'] = to_str(res['RuntimeVersion'])
-        res['Version'] = to_str(res['Version'])
-
-        res['Name'] = ustr(res['Name'])
-        res['Server'] = ustr(res['Server'])
-        res['LocalNameCheck'] = ustr(res['LocalNameCheck'])
-        res['UserHostAddress'] = ustr(res['UserHostAddress'])
-
-        return res
-
-    def sources(self):
-        """Return available sources of data."""
-        res = self.client.service.Sources(self.userdata, 0)
-        return [ustr(x[0]) for x in res[0]]
-
-    def request(self, query, source='Datastream',
-                fields=None, options=None, symbol_set=None, tag=None):
-        """General function to retrieve one record in raw format.
-
-           query - query string for DWE system. This may be a simple instrument name
-                   or more complicated request. Refer to the documentation for the
-                   format.
-           source - The name of datasource (default: "Datastream")
-           fields - Fields to be retrieved (used when the requester does not want all
-                    fields to be delivered).
-           options - Options for specific data source. Many of datasources do not require
-                     opptions string. Refer to the documentation of the specific
-                     datasource for allowed syntax.
-           symbol_set - The symbol set used inside the instrument (used for mapping
-                        identifiers within the request. Refer to the documentation for
-                        the details.
-           tag - User-defined cookie that can be used to match up requests and response.
-                 It will be returned back in the response. The string should not be
-                 longer than 256 characters.
-        """
-        if self.show_request:
-            try:
-                print('Request:' + query)
-            except UnicodeEncodeError:
-                print('Request:' + query.encode('utf-8'))
-
-        rd = self.client.factory.create('RequestData')
-        rd.Source = source
-        rd.Instrument = query
-        if fields is not None:
-            rd.Fields = self.client.factory.create('ArrayOfString')
-            rd.Fields.string = fields
-        rd.SymbolSet = symbol_set
-        rd.Options = options
-        rd.Tag = tag
-
-        self.last_response = self.client.service.RequestRecord(self.userdata, rd, 0)
-
-        return self.last_response
-
-    def request_many(self, queries, source='Datastream',
-                     fields=None, options=None, symbol_set=None, tag=None):
-        """General function to retrieve one record in raw format.
-
-           query - list of query strings for DWE system.
-           source - The name of datasource (default: "Datastream")
-           fields - Fields to be retrieved (used when the requester does not want all
-                    fields to be delivered).
-           options - Options for specific data source. Many of datasources do not require
-                     opptions string. Refer to the documentation of the specific
-                     datasource for allowed syntax.
-           symbol_set - The symbol set used inside the instrument (used for mapping
-                        identifiers within the request. Refer to the documentation for
-                        the details.
-           tag - User-defined cookie that can be used to match up requests and response.
-                 It will be returned back in the response. The string should not be
-                 longer than 256 characters.
-           NB! source, options, symbol_set and tag are assumed to be identical for all
-               requests in the list
-        """
-        if self.show_request:
-            print(('Requests:', queries))
-
-        if not isinstance(queries, list):
-            queries = [queries]
-
-        req = self.client.factory.create('ArrayOfRequestData')
-        req.RequestData = []
-        for q in queries:
-            rd = self.client.factory.create('RequestData')
-            rd.Source = source
-            rd.Instrument = q
-            if fields is not None:
-                rd.Fields = self.client.factory.create('ArrayOfString')
-                rd.Fields.string = fields
-            rd.SymbolSet = symbol_set
-            rd.Options = options
-            rd.Tag = tag
-
-            req.RequestData.append(rd)
-
-        return self.client.service.RequestRecords(self.userdata, req, 0)[0]
-
-    #################################################################################
-    def status(self, record=None):
-        """Extract status from the retrieved data and save it as a property of an object.
-           If record with data is not specified then the status of previous operation is
-           returned.
-
-           status - dictionary with data source, string with request and status type,
-                    code and message.
-
-           status['StatusType']: 'Connected' - the data is fine
-                                 'Stale'     - the source is unavailable. It may be
-                                               worthwhile to try again later
-                                 'Failure'   - data could not be obtained (e.g. the
-                                               instrument is incorrect)
-                                 'Pending'   - for internal use only
-           status['StatusCode']: 0 - 'No Error'
-                                 1 - 'Disconnected'
-                                 2 - 'Source Fault'
-                                 3 - 'Network Fault'
-                                 4 - 'Access Denied' (user does not have permissions)
-                                 5 - 'No Such Item' (no instrument with given name)
-                                 11 - 'Blocking Timeout'
-                                 12 - 'Internal'
-        """
-        if record is not None:
-            self.last_status = {'Source': ustr(record['Source']),
-                                'StatusType': ustr(record['StatusType']),
-                                'StatusCode': record['StatusCode'],
-                                'StatusMessage': ustr(record['StatusMessage']),
-                                'Request': ustr(record['Instrument'])}
-        return self.last_status
-
-    def _test_status_and_warn(self):
-        """Test status of last request and post warning if necessary.
-        """
-        status = self.last_status
-        if status['StatusType'] != 'Connected':
-            if isinstance(status['StatusMessage'], basestring):
-                warnings.warn('[DWE] ' + status['StatusMessage'])
-            elif isinstance(status['StatusMessage'], list):
-                warnings.warn('[DWE] ' + ';'.join(status['StatusMessage']))
-
-    #################################################################################
-    @staticmethod
-    def extract_data(raw):
-        """Extracts data from the raw response and returns it as a dictionary."""
-        return {x[0]: x[1] for x in raw['Fields'][0]}
-
-    def parse_record(self, raw, indx=0):
-        """Parse raw data (that is retrieved by "request") and return pandas.DataFrame.
-           Returns tuple (data, metadata)
-
-           data - pandas.DataFrame with retrieved data.
-           metadata - pandas.DataFrame with info about symbol, currency, frequency,
-                      displayname and status of given request
-        """
-        suffix = '' if indx == 0 else '_%i' % (indx + 1)
-
-        # Parsing status
-        status = self.status(raw)
-
-        # Testing if no errors
-        if status['StatusType'] != 'Connected':
-            if self.raise_on_error:
-                raise DatastreamException('%s (error %i): %s --> "%s"' %
-                                          (status['StatusType'], status['StatusCode'],
-                                           status['StatusMessage'], status['Request']))
-            else:
-                self._test_status_and_warn()
-                return pd.DataFrame(), {}
-
-        record = self.extract_data(raw)
-        get_field = lambda fldname: record[fldname + suffix]
+    ###########################################################################
+    def _api_post(self, method, request):
+        """ Call to the POST method of DSWS API """
+        url = self._url + method
+        self.last_request = {'url': url, 'request': request, 'error': None}
+        try:
+            res = requests.post(url, json=request, proxies=self._proxy)
+            self.last_request['response'] = res.text
+        except Exception as e:
+            self.last_request['error'] = str(e)
+            raise
 
         try:
-            error = get_field('INSTERROR')
-            if self.raise_on_error:
-                raise DatastreamException('Error: %s --> "%s"' %
-                                          (error, status['Request']))
-            else:
-                self.last_status['StatusMessage'] = error
-                self.last_status['StatusType'] = 'INSTERROR'
-                self._test_status_and_warn()
-                metadata = {'Frequency': '', 'Currency': '', 'DisplayName': '',
-                            'Symbol': '', 'Status': error}
-        except KeyError:
-            # Parsing metadata of the symbol
-            # NB! currency might be returned as symbol thus "unicode" should be used
-            metadata = {'Frequency': ustr(get_field('FREQUENCY')),
-                        'Currency': ustr(get_field('CCY')),
-                        'DisplayName': ustr(get_field('DISPNAME')),
-                        'Symbol': ustr(get_field('SYMBOL')),
-                        'Status': 'OK'}
+            response = self.last_request['response'] = json.loads(self.last_request['response'])
+        except json.JSONDecodeError:
+            raise DatastreamException('Server response could not be parsed')
 
-        # Fields with data
-        if suffix == '':
-            fields = [ustr(x) for x in record if '_' not in x]
-        else:
-            fields = [ustr(x) for x in record if suffix in x]
+        if 'Code' in response:
+            code = response['Code']
+            if response['SubCode'] is not None:
+                code += '/' + response['SubCode']
+            errormsg = f'{code}: {response["Message"]}'
+            self.last_request['error'] = errormsg
+            raise DatastreamException(errormsg)
+        return self.last_request['response']
 
-        # Filter metadata
-        meta_fields = ['CCY', 'DISPNAME', 'FREQUENCY', 'SYMBOL', 'DATE', 'INSTERROR']
-        fields = [x.replace(suffix, '') for x in fields
-                  if not any([y in x for y in meta_fields])]
+    ###########################################################################
+    def renew_token(self, username=None, password=None):
+        """ Request new token from the server """
+        if username is None or password is None:
+            warngins.warn('Username or password is not provided - could not renew token')
+            return
+        data = {"UserName": username, "Password": password}
+        self._token = dict(self._api_post('GetToken', data))
+        self._token['TokenExpiry'] = _parse_dates(self._token['TokenExpiry'])
 
-        if 'DATE' + suffix in record:
-            date = record['DATE' + suffix]
-        elif 'DATE' in record:
-            date = record['DATE']
-        else:
-            date = None
+    @property
+    def _token_is_expired(self):
+        if self._token is None:
+            return True
+        # We invalidate token 15 minutes before expiration time
+        if self._token['TokenExpiry'] < pd.Timestamp('now') - pd.Timedelta('15m'):
+            return True
+        return False
 
-        if len(fields) > 0 and date is not None:
-            # Check if we have a single value or a series
-            if isinstance(date, dt.datetime):
-                data = pd.DataFrame({x: [get_field(x)] for x in fields},
-                                    index=[date])
-            else:
-                data = pd.DataFrame({x: get_field(x)[0] for x in fields},
-                                    index=date[0])
-        else:
-            data = pd.DataFrame()
+    @property
+    def token(self):
+        """ Return actual token and renew it if necessary. """
+        if self._token_is_expired:
+            self.renew_token(self._username, self._password)
+        return self._token['TokenValue']
 
-        metadata = pd.DataFrame(metadata, index=[indx])
-        metadata = metadata[['Symbol', 'DisplayName', 'Currency', 'Frequency', 'Status']]
-        return data, metadata
-
-    def parse_record_static(self, raw):
-        """Parse raw data (that is retrieved by static request) and return pandas.DataFrame.
-           Returns tuple (data, metadata)
-
-           data - pandas.DataFrame with retrieved data.
-           metadata - pandas.DataFrame with info about symbol, currency, frequency,
-                      displayname and status of given request
+    ###########################################################################
+    def request(self, request):
+        """ Generic wrapper to request data in raw format. Request should be
+            properly formatted dictionary (see construct_request() method).
         """
-        # Parsing status
-        status = self.status(raw)
+        data = {'DataRequest': request, 'TokenValue': self.token}
+        return self._api_post('GetData', data)
 
-        # Testing if no errors
-        if status['StatusType'] != 'Connected':
-            if self.raise_on_error:
-                raise DatastreamException('%s (error %i): %s --> "%s"' %
-                                          (status['StatusType'], status['StatusCode'],
-                                           status['StatusMessage'], status['Request']))
-            else:
-                self._test_status_and_warn()
-                return pd.DataFrame(), {}
+    def request_many(self, list_of_requests):
+        """ Generic wrapper to request multiple requests in raw format.
+            list_of_requests should be a list of properly formatted dictionaries
+            (see construct_request() method).
+        """
+        data = {'DataRequests': list_of_requests, 'TokenValue': self.token}
+        return self._api_post('GetDataBundle', data)
 
-        # Convert record to dict
-        record = self.extract_data(raw)
-
-        try:
-            error = record['INSTERROR']
-            if self.raise_on_error:
-                raise DatastreamException('Error: %s --> "%s"' %
-                                          (error, status['Request']))
-            else:
-                self.last_status['StatusMessage'] = error
-                self.last_status['StatusType'] = 'INSTERROR'
-                self._test_status_and_warn()
-                return pd.DataFrame(), {'Status': error, 'Date': None}
-        except KeyError:
-            metadata = {'Status': 'OK', 'Date': ''}
-
-        # All fields that are available
-        fields = [x for x in record if '_' not in x]
-        metadata['Date'] = record['DATE']
-        fields.remove('DATE')
-
-        # Number of elements
-        num = len([x[0] for x in record if 'SYMBOL' in x])
-
-        # field naming 'CCY', 'CCY_2', 'CCY_3', ...
-        fld_name = lambda field, indx: field if indx == 0 else field + '_%i' % (indx + 1)
-
-        # Construct pd.DataFrame
-        res = pd.DataFrame({fld: [record[fld_name(fld, ind)]
-                                  if fld_name(fld, ind) in record else ''
-                                  for ind in range(num)]
-                            for fld in fields})
-        return res, metadata
-
-    #################################################################################
+    ###########################################################################
     @staticmethod
-    def construct_request(ticker, fields=None, date=None,
-                          date_from=None, date_to=None, freq=None):
-        """Construct a request string for querying TR DWE.
+    def construct_request(ticker, fields=None, date_from=None, date_to=None,
+                          freq=None, static=False, IsExpression=None,
+                          return_names=True):
+        """Construct a request string for querying TR DSWS.
 
-           tickers - ticker or symbol
-           fields  - list of fields.
-           date    - date for a single-date query
+           tickers - ticker or symbol, or list of symbols
+           fields  - field or list of fields.
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
-                     Use here 'REP' for static requests
+           static  - True for static (snapshot) requests
+           IsExpression - if True, it will explicitly assume that list of tickers
+                          contain expressions. Otherwise it will try to infer it.
 
            Some of available fields:
            P  - adjusted closing price
@@ -439,43 +227,129 @@ class Datastream(object):
 
            The full list of data fields is available at http://dtg.tfn.com/.
         """
+        req = {'Instrument': {}, 'Date': {}, 'DataTypes': []}
+
+        # Instruments
         if isinstance(ticker, basestring):
-            request = ticker
+            ticker = ticker
+            IsList = None
         elif hasattr(ticker, '__len__'):
-            request = ','.join(ticker)
+            ticker = ','.join(ticker)
+            IsList = True
         else:
             raise ValueError('ticker should be either string or list/array of strings')
+        # Properties of instruments
+        props = []
+        if IsList or (',' in ticker):
+            props.append({'Key': 'IsList', 'Value': True})
+        if IsExpression or ('#' in ticker or '(' in ticker or ')' in ticker):
+            props.append({'Key': 'IsExpression', 'Value': True})
+        if return_names:
+            props.append({'Key': 'ReturnName', 'Value': True})
+        req['Instrument'] = {'Value': ticker, 'Properties': props}
+
+        # DataTypes
+        props = [{'Key': 'ReturnName', 'Value': True}] if return_names else []
         if fields is not None:
             if isinstance(fields, basestring):
-                request += '~=' + fields
+                req['DataTypes'].append({'Value': fields, 'Properties': props})
             elif isinstance(fields, list) and len(fields) > 0:
-                request += '~=' + ','.join(fields)
-        if date is not None:
-            request += '~@' + pd.to_datetime(date).strftime('%Y-%m-%d')
-        else:
-            if date_from is not None:
-                request += '~' + pd.to_datetime(date_from).strftime('%Y-%m-%d')
-            if date_to is not None:
-                request += '~:' + pd.to_datetime(date_to).strftime('%Y-%m-%d')
-        if freq is not None:
-            request += '~' + freq
-        return request
+                for f in fields:
+                    req['DataTypes'].append({'Value': f, 'Properties': props})
+            else:
+                raise ValueError('fields should be either string or list/array of strings')
+
+        # Dates
+        req['Date'] = {'Start': _convert_date(date_from),
+                       'End': _convert_date(date_to),
+                       'Frequency': freq if freq is not None else '',
+                       'Kind': 0 if static else 1}
+        return req
+
+    ###########################################################################
+    def _parse_one(self, res):
+        data = res['DataTypeValues']
+        dates = _parse_dates(res['Dates'])
+        res_meta = {_: res[_] for _ in res if _ not in ['DataTypeValues', 'Dates']}
+
+        # Parse values
+        meta = {}
+        res = {}
+        for d in data:
+            data_type = d['DataType']
+            res[data_type] = {}
+            meta[data_type] = {}
+
+            for v in d['SymbolValues']:
+                value = v['Value']
+                if v['Type'] == 0:  # Error
+                    if self.raise_on_error:
+                        raise DatastreamException(value)
+                    else:
+                        res[data_type][v['Symbol']] = pd.np.NaN
+                elif v['Type'] == 4:  # Date
+                    res[data_type][v['Symbol']] = _parse_dates(value)
+                else:
+                    res[data_type][v['Symbol']] = value
+                meta[data_type][v['Symbol']] = {_: v[_] for _ in v if _ != 'Value'}
+
+            res[data_type] = pd.DataFrame(res[data_type], index=dates)
+
+        res = pd.concat(res).unstack(level=1).T.sort_index()
+        res_meta['Currencies'] = meta
+        return res, res_meta
+
+    def parse_response(self, response, return_metadata=False):
+        """ Parse raw JSON response
+
+            If return_metadata is True, then result is tuple (dataframe, metadata),
+            where metadata is a dictionary. Otherwise only dataframe is returned.
+
+            In case of response being constructed from several requests (method
+            request_many()), then the result is a list of parsed responses. Here
+            again, if return_metadata is True then each element is a tuple
+            (dataframe, metadata), otherwise each element is a dataframe.
+        """
+        if 'DataResponse' in response:  # Single request
+            res, meta = self._parse_one(response['DataResponse'])
+            self._last_response_meta = meta
+            return (res, meta) if return_metadata else res
+
+        elif 'DataResponses' in response:  # Multiple requests
+            results = [self._parse_one(r) for r in response['DataResponses']]
+            self._last_response_meta = [_[1] for _ in results]
+            return results if return_metadata else [_[0] for _ in results]
+
+    ###########################################################################
+    def usage_statistics(self, date=None):
+        """ Request usage statistics """
+        return self.fetch('STATS', 'DS.USERSTATS', date, static=True).T
 
     #################################################################################
-    def fetch(self, tickers, fields=None, date=None, date_from=None, date_to=None,
-              freq='D', only_data=True, static=False):
-        """Fetch data from TR DWE.
+    def fetch(self, tickers, fields=None, date_from=None, date_to=None,
+              freq=None, static=False, IsExpression=None, return_metadata=False):
+        """Fetch the data from Datastream for a set of tickers and parse results.
 
-           tickers - ticker or list of tickers
-           fields  - list of fields.
-           date    - date for a single-date query
+           tickers - ticker or symbol, or list of symbols
+           fields  - field or list of fields
            date_from, date_to - date range (used only if "date" is not specified)
            freq    - frequency of data: daily('D'), weekly('W') or monthly('M')
-           only_data - if True then metadata will not be returned
-           static  - if True "static" request is created (i.e. not a series).
-                     In this case 'date_from', 'date_to' and 'freq' are ignored
+           static  - True for static (snapshot) requests
+           IsExpression - if True, it will explicitly assume that list of tickers
+                          contain expressions. Otherwise it will try to infer it.
 
-           In case list of tickers is requested, a MultiIndex-dataframe is returned.
+           Notes: - several fields should be passed as a list, and not as a
+                    comma-separated string!
+                  - if no fields are provided, then the default field will be
+                    fetched. In this case the column might not have any name
+                    in the resulting dataframe.
+
+           Result format depends on the number of requested tickers and fields:
+             - 1 ticker         - DataFrame with fields in column names
+             - many tickers     - DataFrame with fields in column names and
+                                  MultiIndex (ticker, date)
+             - static request   - DataFrame indexed by tickers and with fields
+                                  in column names
 
            Some of available fields:
            P  - adjusted closing price
@@ -492,80 +366,51 @@ class Datastream(object):
            MTVB - market to book value
            PTVB - price to book value
            ...
-
-           The full list of data fields is available at http://dtg.tfn.com/.
         """
+        req = self.construct_request(tickers, fields, date_from, date_to,
+                                     freq=freq, static=static,
+                                     IsExpression=IsExpression,
+                                     return_names=return_metadata)
+        raw = self.request(req)
+        self._last_response_raw = raw
+        data, meta = self.parse_response(raw, return_metadata=True)
+
         if static:
-            query = self.construct_request(tickers, fields, date, freq='REP')
-        else:
-            query = self.construct_request(tickers, fields, date, date_from, date_to, freq)
+            # Static request - drop date from MultiIndex
+            data = data.reset_index(level=1, drop=True)
+        elif len(data.index.levels[0]) == 1:
+            # Only one ticker - drop tickers from MultiIndex
+            data = data.reset_index(level=0, drop=True)
 
-        raw = self.request(query)
-
-        if static:
-            data, metadata = self.parse_record_static(raw)
-        elif isinstance(tickers, basestring) or len(tickers) == 1:
-            data, metadata = self.parse_record(raw)
-        elif hasattr(tickers, '__len__'):
-            metadata = pd.DataFrame()
-            data = {}
-            for indx in range(len(tickers)):
-                dat, meta = self.parse_record(raw, indx)
-                data[tickers[indx]] = dat
-                metadata = metadata.append(meta, ignore_index=False)
-
-            data = pd.concat(data)
-        else:
-            raise DatastreamException(('First argument should be either ticker or '
-                                       'list of tickers'))
-
-        if only_data:
-            return data
-        else:
-            return data, metadata
+        return (data, meta) if return_metadata else data
 
     #################################################################################
-    def get_OHLCV(self, ticker, date=None, date_from=None, date_to=None):
+    def get_OHLCV(self, ticker, date_from=None, date_to=None):
         """Get Open, High, Low, Close prices and daily Volume for a given ticker.
 
            ticker  - ticker or symbol
-           date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
-
-           Returns pandas.Dataframe with data. If error occurs, then it is printed as
-           a warning.
         """
-        data, meta = self.fetch(ticker + "~OHLCV", None, date,
-                                date_from, date_to, 'D', only_data=False)
-        return data
+        return self.fetch(ticker, ['PO', 'PH', 'PL', 'P', 'VO'], date_from, date_to,
+                          freq='D', return_metadata=False)
 
     def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
         """Get Open, High, Low and Close prices for a given ticker.
 
            ticker  - ticker or symbol
-           date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
-
-           Returns pandas.Dataframe with data. If error occurs, then it is printed as
-           a warning.
         """
-        data, meta = self.fetch(ticker + "~OHLC", None, date,
-                                date_from, date_to, 'D', only_data=False)
-        return data
+        return self.fetch(ticker, ['PO', 'PH', 'PL', 'P'], date_from, date_to,
+                          freq='D', return_metadata=False)
 
-    def get_price(self, ticker, date=None, date_from=None, date_to=None):
+    def get_price(self, ticker, date_from=None, date_to=None):
         """Get Close price for a given ticker.
 
            ticker  - ticker or symbol
-           date    - date for a single-date query
            date_from, date_to - date range (used only if "date" is not specified)
-
-           Returns pandas.Dataframe with data. If error occurs, then it is printed as
-           a warning.
         """
-        data, meta = self.fetch(ticker, None, date,
-                                date_from, date_to, 'D', only_data=False)
-        return data
+        return self.fetch(ticker, 'P', date_from, date_to,
+                          freq='D', return_metadata=False)
 
     #################################################################################
     def get_constituents(self, index_ticker, date=None, only_list=False):
@@ -580,19 +425,31 @@ class Datastream(object):
                            for large indices like Russel-3000. If only_list=True,
                            then only the list of symbols and names are retrieved.
         """
-        if date is not None:
-            str_date = pd.to_datetime(date).strftime('%m%y')
+        if only_list:
+            fields = ['MNEM', 'NAME']
         else:
-            str_date = ''
-        # Note: ~XREF is equal to the following large request
-        # ~REP~=DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,INDXFS,INDXL,
-        #       INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE
-        fields = '~REP~=NAME' if only_list else '~XREF'
-        query = 'L' + index_ticker + str_date + fields
-        raw = self.request(query)
+            fields = _FLDS_XREF
+        return self.fetch('L' + index_ticker, fields, date_from=date, static=True)
 
-        res, metadata = self.parse_record_static(raw)
-        return res
+    def get_all_listings(self, ticker):
+        """ Get all listings and their symbols for the given security
+        """
+        res = self.fetch(ticker, 'QTEALL', static=True)
+        columns = list(set([_[:2] for _ in res.columns]))
+
+        # Reformat the output
+        df = {}
+        for ind in range(1, 21):
+            cols = {f'{c}{ind:02d}': c for c in columns}
+            df[ind] = res[cols.keys()].rename(columns=cols)
+        df = pd.concat(df).swaplevel(0).sort_index()
+        df = df[~(df == '').all(axis=1)]
+        return df
+
+    def get_codes(self, ticker):
+        """ Get codes and symbols for the given securities
+        """
+        return self.fetch(ticker, _FLDS_XREF, static=True)
 
     #################################################################################
     def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):
@@ -607,7 +464,7 @@ class Datastream(object):
 
             For example:
 
-            >> DWE.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
+            >> DS.get_epit_vintage_matrix('USGDP...D', date_from='2015-01-01')
 
                         2015-02-15  2015-05-15  2015-08-15  2015-11-15  \
             2015-04-29    16304.80         NaN         NaN         NaN
@@ -659,9 +516,9 @@ class Datastream(object):
             set to True (in which case up to 50 values is returned).
         """
         if relh50:
-            data = self.fetch(mnemonic, 'RELH50', date=period, static=True)
+            data = self.fetch(mnemonic, 'RELH50', date_from=period, static=True)
         else:
-            data = self.fetch(mnemonic, 'RELH', date=period, static=True)
+            data = self.fetch(mnemonic, 'RELH', date_from=period, static=True)
         data = data.iloc[0]
 
         # Parse the response
