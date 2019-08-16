@@ -156,7 +156,7 @@ class Datastream(object):
     def renew_token(self, username=None, password=None):
         """ Request new token from the server """
         if username is None or password is None:
-            warngins.warn('Username or password is not provided - could not renew token')
+            warnings.warn('Username or password is not provided - could not renew token')
             return
         data = {"UserName": username, "Password": password}
         self._token = dict(self._api_post('GetToken', data))
