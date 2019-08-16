@@ -15,14 +15,15 @@ GitHub (https://github.com/vfilimonov/pydatastream/blob/master/README.md).
 """
 
 _URL = 'http://github.com/vfilimonov/pydatastream'
-_VERSION = '0.6.dev1'
+
+exec(open('pydatastream/_version.py').read())
 
 setup(name='PyDatastream',
-      version=_VERSION,
+      version=__version__,
       description='Python interface to the Refinitiv Datastream (former Thomson Reuters Datastream) API via Datastream Web Services (DSWS)',
       long_description=LONG_DESCRIPTION,
       url=_URL,
-      download_url=_URL + '/archive/v' + _VERSION + '.zip',
+      download_url=_URL + '/archive/v' + __version__ + '.zip',
       author='Vladimir Filimonov',
       author_email='vladimir.a.filimonov@gmail.com',
       license='MIT License',
