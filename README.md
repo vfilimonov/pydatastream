@@ -6,9 +6,9 @@ PyDatastream is a Python interface to the Refinitiv Datastream (former Thomson R
 
 ## Installation
 
-The version 0.6 is not yet released at pypi. So far the installation could be done using pip from the GitHub:
+The latest version of PyDatastream is always available at [GitHub](https://github.com/vfilimonov/pydatastream) at the `master` branch. Last release could be also installed from [PyPI](https://pypi.python.org/pypi/PyDatastream) using `pip`:
 ```
-pip install git+https://github.com/vfilimonov/pydatastream.git
+pip install pydatastream
 ```
 
 Two external dependencies are [pandas](http://pandas.pydata.org/pandas-docs/stable/install.html) and [requests](https://2.python-requests.org/en/master/).
