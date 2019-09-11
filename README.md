@@ -309,7 +309,9 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.5.1 (2017-11-17) Added Economic Point-in-Time (EPiT) functionality
 - 0.6 (2019-08-27) The library is rewritten to use the new REST-based Datastream Web Services (DSWS) interfaces instead of old SOAP-based DataWorks Enterprise (DWE), which was discontinued on July 1, 2019. Some methods (such as `system_info()` or `sources()`) have been removed as they're not supported by a new API.
 
-Note: any versions of pydatastream prior to 0.6 will not work anymore.
+Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
+
+Note 2: Starting version 0.6 Python 2 is no longer supported - in line with many critical projects (including numpy, pandas and matplotlib) [dropping support of Python 2 by 2020](https://python3statement.org/).
 
 
 ## Acknowledgements

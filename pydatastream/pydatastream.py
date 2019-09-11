@@ -7,23 +7,6 @@ import json
 import requests
 import pandas as pd
 
-# Python3-safe basesctring Method
-# http://www.rfk.id.au/blog/entry/preparing-pyenchant-for-python-3/
-try:
-    unicode = unicode
-except NameError:
-    # 'unicode' is undefined, must be Python 3
-    str = str
-    unicode = str
-    bytes = bytes
-    basestring = (str, bytes)
-else:
-    # 'unicode' exists, must be Python 2
-    str = str
-    unicode = unicode
-    bytes = str
-    basestring = basestring
-
 _URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
 _FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
@@ -58,7 +41,7 @@ def _convert_date(date):
     """ Convert date to YYYY-MM-DD """
     if date is None:
         return ''
-    if isinstance(date, str) & (date.upper() == 'BDATE'):
+    if isinstance(date, str) and (date.upper() == 'BDATE'):
         return 'BDATE'
     return pd.Timestamp(date).strftime('%Y-%m-%d')
 
@@ -73,7 +56,7 @@ def _parse_dates(dates):
         return None
     res = pd.Series(dates).str[6:-2].str.replace('+0000', '', regex=False)
     res = pd.to_datetime(res.astype(float), unit='ms').values
-    return pd.Timestamp(res[0]) if isinstance(dates, basestring) else res
+    return pd.Timestamp(res[0]) if isinstance(dates, str) else res
 
 
 class DatastreamException(Exception):
@@ -110,7 +93,7 @@ class Datastream(object):
         self._last_response_raw = None
 
         # Setting up proxy parameters if necessary
-        if isinstance(proxy, basestring):
+        if isinstance(proxy, str):
             self._proxy = {'http': proxy, 'https': proxy}
         elif proxy is None:
             self._proxy = None
@@ -233,7 +216,7 @@ class Datastream(object):
         req = {'Instrument': {}, 'Date': {}, 'DataTypes': []}
 
         # Instruments
-        if isinstance(ticker, basestring):
+        if isinstance(ticker, str):
             ticker = ticker
             is_list = None
         elif hasattr(ticker, '__len__'):
@@ -254,9 +237,9 @@ class Datastream(object):
         # DataTypes
         props = [{'Key': 'ReturnName', 'Value': True}] if return_names else []
         if fields is not None:
-            if isinstance(fields, basestring):
+            if isinstance(fields, str):
                 req['DataTypes'].append({'Value': fields, 'Properties': props})
-            elif isinstance(fields, list) and len(fields) > 0:
+            elif isinstance(fields, list) and fields:
                 for f in fields:
                     req['DataTypes'].append({'Value': f, 'Properties': props})
             else:
