@@ -29,6 +29,9 @@ _URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 _FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
               'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
 
+_FLDS_XREF_FUT = ('MNEM,NAME,FLOT,FEX,EXCODE,LTDT,FUTBDATE,PCUR,ISOCUR,'
+                  'TICKS,TICKV,TCYCLE,TPLAT'.split(','))
+
 _INFO = """PyDatastream documentation (GitHub):
 https://github.com/vfilimonov/pydatastream
 
@@ -449,6 +452,32 @@ class Datastream(object):
         """ Get codes and symbols for the given securities
         """
         return self.fetch(ticker, _FLDS_XREF, static=True)
+
+    #################################################################################
+    def get_futures_contracts(self, market_code, only_list=False, include_dead=False):
+        """ Get list of all contracts for a given futures market
+
+            market_code  - Datastream mnemonic for a market (e.g. LLC for the
+                           Brent Crude Oil, whose contracts have mnemonics like
+                           LLC0118 for January 2018)
+            only_list    - request only list of symbols. By default the method
+                           retrieves many extra fields with information (currency,
+                           lot size, last trading date, etc). If only_list=True,
+                           then only the list of symbols and names are retrieved.
+            include_dead - if True, all delisted/expired contracts will be fetched
+                           as well. Otherwise only active contracts will be returned.
+        """
+        if only_list:
+            fields = ['MNEM', 'NAME']
+        else:
+            fields = _FLDS_XREF_FUT
+        res = self.fetch(f'LFUT{market_code}L', fields, static=True)
+        res['active'] = True
+        if include_dead:
+            res2 = self.fetch(f'LFUT{market_code}D', fields, static=True)
+            res2['active'] = False
+            res = pd.concat([res, res2])
+        return res[res.MNEM != 'NA']  # Drop lines with empty mnemonics
 
     #################################################################################
     def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):

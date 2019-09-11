@@ -130,6 +130,25 @@ DS.get_codes(['U:IBM', '@MSFT'])
 ```
 
 
+### Futures markets
+
+Futures contracts have mnemonics of the form `XXXMMYY`, where `XXX` is a code for a futures market and `MM` and `YY` encode date and year of the contract. For example, `LLC0118` would denote market `LLC` (Brent Crude Oil) expiring in January 2018.
+
+For a given market code it is possible to get a list of all active contracts (together with some extra information, such as exchange traded, tick size, contract size, last trading date etc.):
+```python
+DS.get_futures_contracts('LLC')
+```
+By default only active contracts are retrieved. In order to get the full list of contracts, use `include_dead=True` argument:
+```python
+DS.get_futures_contracts('LLC', include_dead=True)
+```
+
+**Note**: Futures contracts do not operate with the "Price" field (`P`) and instead they use "Settlement Price" (`PS`):
+```python
+DS.fetch('LLC0118', 'PS', date_from='BDATE')
+```
+
+
 ### Static requests
 
 List of constituents of indices, that were considered above, is an example of static request, i.e. a request that does not retrieve a time-series, but a single snapshot with the data.
