@@ -1,8 +1,11 @@
-import pandas as pd
-import datetime as dt
+""" pydatastream main module
+
+    (c) Vladimir Filimonov, 2013 - 2019
+"""
 import warnings
 import json
 import requests
+import pandas as pd
 
 # Python3-safe basesctring Method
 # http://www.rfk.id.au/blog/entry/preparing-pyenchant-for-python-3/
@@ -48,19 +51,11 @@ https://developers.refinitiv.com/eikon-apis/datastream-web-service
 
 ###############################################################################
 ###############################################################################
-# def _ustr(x):
-#     """Unicode-safe version of str()"""
-#     try:
-#         return str(x)
-#     except UnicodeEncodeError:
-#         return unicode(x)
-
 def _convert_date(date):
     """ Convert date to YYYY-MM-DD """
     if date is None:
         return ''
-    else:
-        return pd.Timestamp(date).strftime('%Y-%m-%d')
+    return pd.Timestamp(date).strftime('%Y-%m-%d')
 
 
 def _parse_dates(dates):
@@ -105,6 +100,9 @@ class Datastream(object):
            via "url" parameter.
         """
         self.raise_on_error = raise_on_error
+        self.last_request = None
+        self._last_response_meta = None
+        self._last_response_raw = None
 
         # Setting up proxy parameters if necessary
         if isinstance(proxy, basestring):
@@ -232,15 +230,15 @@ class Datastream(object):
         # Instruments
         if isinstance(ticker, basestring):
             ticker = ticker
-            IsList = None
+            is_list = None
         elif hasattr(ticker, '__len__'):
             ticker = ','.join(ticker)
-            IsList = True
+            is_list = True
         else:
             raise ValueError('ticker should be either string or list/array of strings')
         # Properties of instruments
         props = []
-        if IsList or (',' in ticker):
+        if is_list or (',' in ticker):
             props.append({'Key': 'IsList', 'Value': True})
         if IsExpression or ('#' in ticker or '(' in ticker or ')' in ticker):
             props.append({'Key': 'IsExpression', 'Value': True})
@@ -285,8 +283,7 @@ class Datastream(object):
                 if v['Type'] == 0:  # Error
                     if self.raise_on_error:
                         raise DatastreamException(value)
-                    else:
-                        res[data_type][v['Symbol']] = pd.np.NaN
+                    res[data_type][v['Symbol']] = pd.np.NaN
                 elif v['Type'] == 4:  # Date
                     res[data_type][v['Symbol']] = _parse_dates(value)
                 else:
@@ -314,11 +311,11 @@ class Datastream(object):
             res, meta = self._parse_one(response['DataResponse'])
             self._last_response_meta = meta
             return (res, meta) if return_metadata else res
-
-        elif 'DataResponses' in response:  # Multiple requests
+        if 'DataResponses' in response:  # Multiple requests
             results = [self._parse_one(r) for r in response['DataResponses']]
             self._last_response_meta = [_[1] for _ in results]
             return results if return_metadata else [_[0] for _ in results]
+        raise DatastreamException('Neither DataResponse nor DataResponses are found')
 
     ###########################################################################
     def usage_statistics(self, date=None):
@@ -394,7 +391,7 @@ class Datastream(object):
         return self.fetch(ticker, ['PO', 'PH', 'PL', 'P', 'VO'], date_from, date_to,
                           freq='D', return_metadata=False)
 
-    def get_OHLC(self, ticker, date=None, date_from=None, date_to=None):
+    def get_OHLC(self, ticker, date_from=None, date_to=None):
         """Get Open, High, Low and Close prices for a given ticker.
 
            ticker  - ticker or symbol
@@ -435,7 +432,7 @@ class Datastream(object):
         """ Get all listings and their symbols for the given security
         """
         res = self.fetch(ticker, 'QTEALL', static=True)
-        columns = list(set([_[:2] for _ in res.columns]))
+        columns = list({_[:2] for _ in res.columns})
 
         # Reformat the output
         df = {}
