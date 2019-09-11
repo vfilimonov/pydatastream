@@ -55,6 +55,8 @@ def _convert_date(date):
     """ Convert date to YYYY-MM-DD """
     if date is None:
         return ''
+    if isinstance(date, str) & (date.upper() == 'BDATE'):
+        return 'BDATE'
     return pd.Timestamp(date).strftime('%Y-%m-%d')
 
 

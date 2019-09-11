@@ -62,6 +62,11 @@ res = DS.fetch(['@AAPL','U:MMM'], fields=['P','MV','VO','PH'], date_from='2000-0
 
 The resulting data frame could be sliced, in order to select all fields for a given ticker (`res.loc['U:MMM']`) or data for the specific field for all tickers ('res['MV'].unstack(level=0)').
 
+Starting and ending dates could be provided as strings or `pandas.Timestamp` objects. One useful option is to fetch the data using `BDATE` as a starting date. In this case the whole series will be fetched from the first available date will be fetched (for several series - the earliest starting date of all of them will be used):
+```python
+res = DS.fetch(['@AAPL','U:MMM'], 'P', date_from='BDATE')
+```
+
 #### Note 1: Default field
 
 **Important**: This is the most likely case of "E100, INVALID CODE OR EXPRESSION ENTERED" error message when fetching multiple symbols at once, even if they could be fetched one-by-one. This was observed so far in [exchange rates](https://github.com/vfilimonov/pydatastream/issues/14) and [economic](https://github.com/vfilimonov/pydatastream/issues/16) [series](https://github.com/vfilimonov/pydatastream/issues/11).
