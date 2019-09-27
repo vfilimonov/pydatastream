@@ -55,7 +55,7 @@ def _parse_dates(dates):
     if dates is None:
         return None
     res = pd.Series(dates).str[6:-2].str.replace('+0000', '', regex=False)
-    res = pd.to_datetime(res.astype(float), unit='ms').values
+    res = pd.to_datetime(res.astype(int), unit='ms').values
     return pd.Timestamp(res[0]) if isinstance(dates, str) else res
 
 
