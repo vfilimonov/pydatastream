@@ -54,9 +54,10 @@ def _parse_dates(dates):
     """
     if dates is None:
         return None
-    res = pd.Series(dates).str[6:-2].str.replace('+0000', '', regex=False)
-    res = pd.to_datetime(res.astype(int), unit='ms').values
-    return pd.Timestamp(res[0]) if isinstance(dates, str) else res
+    if isinstance(dates, str):
+        return pd.Timestamp(_parse_dates([dates])[0])
+    res = [int(_[6:(-7 if '+' in _ else -2)]) for _ in dates]
+    return pd.to_datetime(res, unit='ms').values
 
 
 class DatastreamException(Exception):
