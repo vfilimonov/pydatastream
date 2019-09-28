@@ -236,6 +236,13 @@ in the request. Because the data returned from the server in the unstructured fo
 parser tries to map this to the structured pandas.DataFrame, the exceptions could be
 relatively uninformative. In this case it is highly suggested to check the raw response from the server to spot the problematic field.
 
+### Usage statistics
+
+Statistics about the number of requests, datatypes and returned data points for a given account could be requested using the `usage_statistics` method. By default it returns stats for the present month, but it could also return the usage statistics for some specified month in the past, or even the range of months. For instance: the usage statistics (monthly) for the last year could be fetched using:
+```python
+DS.usage_statistics(months=12)
+```
+
 ## Thomson Reuters Economic Point-in-Time (EPiT) functionality
 
 PyDatastream has two useful methods to work with the Thomson Reuters Economic Point-in-Time (EPiT) concept (usually a separate subscription is required for this content). Most of the economic time series, such as GDP, employment or inflation figures are undergoing many revisions on their way. So that US GDP value undertakes two consecutive revisions after the initial release, after which the number is revised periodically when e.g. either the base year of calculation or seasonal adjustment are changed. For predictive exercises it is important to obtain the actual values as they were known at the time of releases (otherwise the data will be contaminated by look-ahead bias).

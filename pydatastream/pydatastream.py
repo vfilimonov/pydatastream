@@ -307,9 +307,24 @@ class Datastream(object):
         raise DatastreamException('Neither DataResponse nor DataResponses are found')
 
     ###########################################################################
-    def usage_statistics(self, date=None):
-        """ Request usage statistics """
-        return self.fetch('STATS', 'DS.USERSTATS', date, static=True).T
+    def usage_statistics(self, date=None, months=1):
+        """ Request usage statistics
+
+            date - if None, stats for the current month will be fetched,
+                   otherwise for the month which contains the specified date.
+            months - number of consecutive months prior to "date" for which
+                     stats should be retrieved.
+        """
+        if date is None:
+            date = pd.Timestamp('now').normalize() - pd.offsets.MonthBegin()
+        req = [self.construct_request('STATS', 'DS.USERSTATS',
+                                      date-pd.offsets.MonthBegin(n), static=True)
+               for n in range(months)][::-1]
+        res = self.parse_response(self.request_many(req))
+        res = pd.concat(res)
+        res.index = res['Start Date'].dt.strftime('%B %Y')
+        res.index.name = None
+        return res
 
     #################################################################################
     def fetch(self, tickers, fields=None, date_from=None, date_to=None,
