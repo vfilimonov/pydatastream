@@ -279,6 +279,9 @@ class Datastream(object):
                     res[data_type][v['Symbol']] = value
                 meta[data_type][v['Symbol']] = {_: v[_] for _ in v if _ != 'Value'}
 
+            if dates is None:
+                # Fix - if dates are not returned, then simply use integer index
+                dates = [0]
             res[data_type] = pd.DataFrame(res[data_type], index=dates)
 
         res = pd.concat(res).unstack(level=1).T.sort_index()
@@ -553,4 +556,49 @@ class Datastream(object):
                for i in range(1, 51 if relh50 else 21)
                if data.loc['RELHD%02d' % i] != ''}
         res = pd.Series(res, name=data.loc['RELHP  ']).sort_index()
+        return res
+
+    #################################################################################
+    def get_next_release_dates(self, mnemonics, n_releases=1):
+        """ Return the next date of release (NDoR) for a given economic series.
+            Could return results for up to 12 releases in advance.
+
+            Returned fields:
+              DATE        - Date of release (or start of range where the exact
+                            date is not available)
+              DATE_LATEST - End of range when a range is given
+              TIME_GMT    - Expected time of release (for "official" dates only)
+              DATE_FLAG   - Indicates whether the dates are "official" ones from
+                            the source, or estimated by Thomson Reuters where
+                            "officials" not available
+              REF_PERIOD  - Corresponding reference period for the release
+              TYPE        - Indicates whether the release is for a new reference
+                            period ("NewValue") or an update to a period for which
+                            there has already been a release ("ValueUpdate")
+        """
+        if n_releases > 12:
+            raise Exception('Only up to 12 months in advance could be requested')
+        if n_releases < 1:
+            raise Exception('n_releases smaller than 1 does not make sense')
+
+        # Fetch and parse
+        reqs = [self.construct_request(mnemonics, f'DS.NDOR{i+1}', static=True)
+                for i in range(n_releases)]
+        res_parsed = self.parse_response(self.request_many(reqs))
+
+        # Rearrange the output
+        res = []
+        for r in res_parsed:
+            x = r.reset_index(level=1, drop=True)
+            x.index.name = 'Mnemonic'
+            # Index of the release counting from now
+            ndor_idx = [_.split('_')[0] for _ in x.columns][0]
+            x['ReleaseNo'] = int(ndor_idx.replace('DS.NDOR', ''))
+            x = x.set_index('ReleaseNo', append=True)
+            x.columns = [_.replace(ndor_idx+'_', '') for _ in x.columns]
+            res.append(x)
+
+        res = pd.concat(res).sort_index()
+        for col in ['DATE', 'DATE_LATEST', 'REF_PERIOD']:
+            res[col] = pd.to_datetime(res[col], errors='coerce')
         return res

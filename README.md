@@ -281,6 +281,11 @@ on 2015-05-29 and the second (16287.70) - on 2015-06-24. On 2015-07-30
 the advance GDP figure for 2015-Q2 was released (16270.400) together
 with update on the 2015-Q1 value (16177.30) and so on.
 
+Finally, when using economic data in any real-life analysis, it is important to know when the next value will be released by the reporting body. For example the following method returns dates of next 4 releases for US GDP and US Nonfarm Payroll figures:
+```python
+DS.get_next_release_dates(['USGDP...D', 'USEMPALLO'], n_releases=4)
+```
+In the response release number is counted from the present day to the future. "DATE_FLAG" indicates whether the dates are given by the official agency or estimated by Thomson Reuters; and "TYPE" field indicates whether the new value is going to be provided or an old value is going to be updated.
 
 ## Resources
 
@@ -321,7 +326,7 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.5 (2017-07-01) Backward-incompatible change: method `fetch()` for many tickers returns MultiIndex Dataframe instead of former Panel. This follows the development of the Pandas library where the Panels are deprecated starting version 0.20.0 (see [here](http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#whatsnew-0200-api-breaking-deprecate-panel)).
 - 0.5.1 (2017-11-17) Added Economic Point-in-Time (EPiT) functionality
 - 0.6 (2019-08-27) The library is rewritten to use the new REST-based Datastream Web Services (DSWS) interfaces instead of old SOAP-based DataWorks Enterprise (DWE), which was discontinued on July 1, 2019. Some methods (such as `system_info()` or `sources()`) have been removed as they're not supported by a new API.
-- 0.6.1 () Fixes and futures-related function.
+- 0.6.1 () Fixes, performance improvements. Added `get_futures_contracts()` and `get_next_release_dates()`.
 
 Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
 
