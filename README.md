@@ -115,7 +115,7 @@ DS.get_constituents('S&PCOMP', '1-sept-2013')
 ```
 
 By default the method retrieves many various mnemonics and codes for the constituents,
-which might pose a problem for large indices like Russel-3000 (the request might be killed
+which might pose a problem for large indices like Russel-3000 (sometimes the request might be killed
 on timeout). In this case one can request only symbols and company names using:
 ```python
 DS.get_constituents('FRUSS3L', only_list=True)
@@ -143,6 +143,10 @@ DS.get_futures_contracts('LLC')
 By default only active contracts are retrieved. In order to get the full list of contracts, use `include_dead=True` argument:
 ```python
 DS.get_futures_contracts('LLC', include_dead=True)
+```
+Similar to the index constituents, it is possible to set up an argument `only_list=True` in order to limit output to only mnemonics and names. This argument is suggested if server returns an error "Index was outside the bounds of the array." on the full request, such as in the following case:
+```python
+DS.get_futures_contracts('NCT', include_dead=True, only_list=True)
 ```
 
 **Note**: Futures contracts do not operate with the "Price" field (`P`) and instead they use "Settlement Price" (`PS`):
