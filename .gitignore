@@ -1,2 +1,5 @@
 *.ipynb
 *.pyc
+.pytest_cache/*
+.pytest_cache
+runtest.sh
