@@ -74,7 +74,7 @@ def test_parse_dates():
 ###############################################################################
 # Construct requests
 ###############################################################################
-def test_construct_request_1():
+def test_construct_request_series_1():
     """ Construct request for series """
     req = {'Instrument': {'Value': '@AAPL', 'Properties': [{'Key': 'ReturnName', 'Value': True}]},
            'Date': {'Start': '2008-01-01', 'End': '2009-01-01', 'Frequency': '', 'Kind': 1},
@@ -84,7 +84,7 @@ def test_construct_request_1():
 
 
 ###############################################################################
-def test_construct_request_2():
+def test_construct_request_series_2():
     """ Construct request for series """
     req = {'Instrument': {'Value': '@AAPL', 'Properties': [{'Key': 'ReturnName', 'Value': True}]},
            'Date': {'Start': 'BDATE', 'End': '', 'Frequency': '', 'Kind': 1},
@@ -96,7 +96,7 @@ def test_construct_request_2():
 
 
 ###############################################################################
-def test_construct_request_3():
+def test_construct_request_static_1():
     """ Construct static request """
     req = {'Instrument': {'Value': 'D:BAS,D:BASX,HN:BAS',
                           'Properties': [{'Key': 'IsList', 'Value': True},
@@ -106,4 +106,77 @@ def test_construct_request_3():
                          {'Value': 'ISINID', 'Properties': [{'Key': 'ReturnName', 'Value': True}]},
                          {'Value': 'NAME', 'Properties': [{'Key': 'ReturnName', 'Value': True}]}]}
     DS = empty_datastream()
-    assert DS.construct_request(['D:BAS','D:BASX','HN:BAS'], ['ISIN', 'ISINID', 'NAME'], static=True) == req
+    assert DS.construct_request(['D:BAS', 'D:BASX', 'HN:BAS'], ['ISIN', 'ISINID', 'NAME'], static=True) == req
+
+
+###############################################################################
+# Parse responses
+###############################################################################
+def test_parse_response_static_1():
+    """ Parse static request """
+    import pandas as pd
+    from io import StringIO
+
+    s = (',,ISIN,ISINID,NAME\nD:BAS,2019-09-27,DE000BASF111,P,BASF\n'
+         'D:BASX,2019-09-27,DE000BASF111,S,BASF (XET)\n'
+         'HN:BAS,2019-09-27,DE000BASF111,S,BASF (BUD)\n')
+    df = pd.read_csv(StringIO(s), index_col=[0,1], parse_dates=[1])
+
+    res = {'AdditionalResponses': None,
+           'DataTypeNames': [{'Key': 'ISIN', 'Value': 'ISIN CODE'},
+                             {'Key': 'ISINID', 'Value': 'QUOTE INDICATOR'},
+                             {'Key': 'NAME', 'Value': 'NAME'}],
+           'DataTypeValues': [{'DataType': 'ISIN',
+                               'SymbolValues': [{'Currency': 'E ', 'Symbol': 'D:BAS', 'Type': 6, 'Value': 'DE000BASF111'},
+                                                {'Currency': 'E ', 'Symbol': 'D:BASX', 'Type': 6, 'Value': 'DE000BASF111'},
+                                                {'Currency': 'HF', 'Symbol': 'HN:BAS', 'Type': 6, 'Value': 'DE000BASF111'}]},
+                              {'DataType': 'ISINID',
+                               'SymbolValues': [{'Currency': 'E ', 'Symbol': 'D:BAS', 'Type': 6, 'Value': 'P'},
+                                                {'Currency': 'E ', 'Symbol': 'D:BASX', 'Type': 6, 'Value': 'S'},
+                                                {'Currency': 'HF', 'Symbol': 'HN:BAS', 'Type': 6, 'Value': 'S'}]},
+                              {'DataType': 'NAME',
+                               'SymbolValues': [{'Currency': 'E ', 'Symbol': 'D:BAS', 'Type': 6, 'Value': 'BASF'},
+                                                {'Currency': 'E ', 'Symbol': 'D:BASX', 'Type': 6, 'Value': 'BASF (XET)'},
+                                                {'Currency': 'HF', 'Symbol': 'HN:BAS', 'Type': 6, 'Value': 'BASF (BUD)'}]}],
+           'Dates': ['/Date(1569542400000+0000)/'],
+           'SymbolNames': [{'Key': 'D:BAS', 'Value': 'D:BAS'},
+                           {'Key': 'D:BASX', 'Value': 'D:BASX'},
+                           {'Key': 'HN:BAS', 'Value': 'HN:BAS'}], 'Tag': None}
+    res = {'DataResponse': res, 'Properties': None}
+
+    DS = empty_datastream()
+    assert DS.parse_response(res).equals(df)
+
+
+###############################################################################
+def test_parse_response_series_1():
+    """ Parse response as a series """
+    import pandas as pd
+    from io import StringIO
+
+    s = (',,P,MV,VO\n@AAPL,1999-12-31,3.6719,16540.47,40952.8\n@AAPL,2000-01-03,3.9978,18008.5,133932.3\n'
+         '@AAPL,2000-01-04,3.6607,16490.2,127909.5\n@AAPL,2000-01-05,3.7143,16760.53,194426.3\n'
+         '@AAPL,2000-01-06,3.3929,15310.1,191981.9\n@AAPL,2000-01-07,3.5536,16035.32,115180.7\n'
+         '@AAPL,2000-01-10,3.4911,15753.29,126265.9\n')
+    df = pd.read_csv(StringIO(s), index_col=[0, 1], parse_dates=[1])
+
+    res = {'AdditionalResponses': [{'Key': 'Frequency', 'Value': 'D'}],
+           'DataTypeNames': None,
+           'DataTypeValues': [{'DataType': 'P',
+                               'SymbolValues': [{'Currency': 'U$', 'Symbol': '@AAPL', 'Type': 10,
+                                                 'Value': [3.6719, 3.9978, 3.6607, 3.7143, 3.3929, 3.5536, 3.4911]}]},
+                              {'DataType': 'MV',
+                               'SymbolValues': [{'Currency': 'U$', 'Symbol': '@AAPL', 'Type': 10,
+                                                 'Value': [16540.47, 18008.5, 16490.2, 16760.53, 15310.1, 16035.32, 15753.29]}]},
+                              {'DataType': 'VO',
+                               'SymbolValues': [{'Currency': 'U$', 'Symbol': '@AAPL', 'Type': 10,
+                                                 'Value': [40952.8, 133932.3, 127909.5, 194426.3, 191981.9, 115180.7, 126265.9]}]}],
+           'Dates': ['/Date(946598400000+0000)/', '/Date(946857600000+0000)/',
+                     '/Date(946944000000+0000)/', '/Date(947030400000+0000)/',
+                     '/Date(947116800000+0000)/', '/Date(947203200000+0000)/',
+                     '/Date(947462400000+0000)/'],
+           'SymbolNames': None, 'Tag': None}
+    res = {'DataResponse': res, 'Properties': None}
+
+    DS = empty_datastream()
+    assert DS.parse_response(res).equals(df)
