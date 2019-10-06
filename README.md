@@ -255,6 +255,13 @@ in the request. Because the data returned from the server in the unstructured fo
 parser tries to map this to the structured pandas.DataFrame, the exceptions could be
 relatively uninformative. In this case it is highly suggested to check the raw response from the server to spot the problematic field.
 
+### Identifying asset class
+
+Many data types (fields) in Datastream are asset type-specific. In order to check what exactly types do your symbols have call `get_asset_types`:
+```python
+DS.get_asset_types(['MMM', '@AAPL', 'S&PCOMP', 'FRUSS3L', 'EUDOLLR', 'USGDP...D', 'FRFEDFD'])
+```
+
 ### Usage statistics
 
 Statistics about the number of requests, datatypes and returned data points for a given account could be requested using the `usage_statistics` method. By default it returns stats for the present month, but it could also return the usage statistics for some specified month in the past, or even the range of months. For instance: the usage statistics (monthly) for the last year could be fetched using:

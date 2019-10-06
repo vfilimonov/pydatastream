@@ -7,6 +7,7 @@ import json
 import requests
 import pandas as pd
 
+###############################################################################
 _URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
 _FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
@@ -15,6 +16,22 @@ _FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
 _FLDS_XREF_FUT = ('MNEM,NAME,FLOT,FEX,EXCODE,LTDT,FUTBDATE,PCUR,ISOCUR,'
                   'TICKS,TICKV,TCYCLE,TPLAT'.split(','))
 
+_ASSET_TYPE_CODES = {'BD': 'Bonds & Convertibles',
+                     'BDIND': 'Bond Indices & Credit Default Swaps',
+                     'CMD': 'Commodities',
+                     'EC': 'Economics',
+                     'EQ': 'Equities',
+                     'EQIND': 'Equity Indices',
+                     'EX': 'Exchange Rates',
+                     'FT': 'Futures',
+                     'INT': 'Interest Rates',
+                     'INVT': 'Investment Trusts',
+                     'OP': 'Options',
+                     'UT': 'Unit Trusts',
+                     'EWT': 'Warrants',
+                     'NA': 'Not available'}
+
+###############################################################################
 _INFO = """PyDatastream documentation (GitHub):
 https://github.com/vfilimonov/pydatastream
 
@@ -228,9 +245,10 @@ class Datastream(object):
             raise ValueError('ticker should be either string or list/array of strings')
         # Properties of instruments
         props = []
-        if is_list or (',' in ticker):
+        if is_list or (is_list is None and ',' in ticker):
             props.append({'Key': 'IsList', 'Value': True})
-        if IsExpression or ('#' in ticker or '(' in ticker or ')' in ticker):
+        if IsExpression or (IsExpression is None and
+                            ('#' in ticker or '(' in ticker or ')' in ticker)):
             props.append({'Key': 'IsExpression', 'Value': True})
         if return_names:
             props.append({'Key': 'ReturnName', 'Value': True})
@@ -477,6 +495,22 @@ class Datastream(object):
         """ Get codes and symbols for the given securities
         """
         return self.fetch(ticker, _FLDS_XREF, static=True)
+
+    #################################################################################
+    def get_asset_types(self, symbols):
+        """ Get asset types for a given list of symbols
+            Note: the method does not
+        """
+        res = self.fetch(symbols, 'TYPE', static=True, IsExpression=False)
+        names = pd.Series(_ASSET_TYPE_CODES).to_frame(name='AssetTypeName')
+        res = res.join(names, on='TYPE')
+        # try to preserve the order
+        if isinstance(symbols, (list, pd.Series)):
+            try:
+                res = res.loc[symbols]
+            except:
+                pass  # OK, we don't keep the order if not possible
+        return res
 
     #################################################################################
     def get_futures_contracts(self, market_code, only_list=False, include_dead=False):
