@@ -254,7 +254,26 @@ class Datastream(object):
         return req
 
     ###########################################################################
+    @staticmethod
+    def _parse_meta(meta):
+        """ Parse SymbolNames, DataTypeNames and Currencies """
+        res = {}
+        for key in meta:
+            if key in ('DataTypeNames', 'SymbolNames'):
+                names = pd.DataFrame(meta[key]).set_index('Key')['Value']
+                names.index.name = key.replace('Names', '')
+                names.name = 'Name'
+                res[key] = names
+            elif key == 'Currencies':
+                cur = pd.concat({key: pd.DataFrame(meta['Currencies'][key])
+                                 for key in meta['Currencies']})
+                res[key] = cur.xs('Currency', level=1).T
+            else:
+                res[key] = meta[key]
+        return res
+
     def _parse_one(self, res):
+        """ Parse one response (either 'DataResponse' or one of 'DataResponses')"""
         data = res['DataTypeValues']
         dates = _parse_dates(res['Dates'])
         res_meta = {_: res[_] for _ in res if _ not in ['DataTypeValues', 'Dates']}
@@ -286,7 +305,7 @@ class Datastream(object):
 
         res = pd.concat(res).unstack(level=1).T.sort_index()
         res_meta['Currencies'] = meta
-        return res, res_meta
+        return res, self._parse_meta(res_meta)
 
     def parse_response(self, response, return_metadata=False):
         """ Parse raw JSON response
