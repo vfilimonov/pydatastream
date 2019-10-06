@@ -294,7 +294,7 @@ class Datastream(object):
                 value = v['Value']
                 if v['Type'] == 0:  # Error
                     if self.raise_on_error:
-                        raise DatastreamException(value)
+                        raise DatastreamException(f'"{v["Symbol"]}"("{data_type}"): {value}')
                     res[data_type][v['Symbol']] = pd.np.NaN
                 elif v['Type'] == 4:  # Date
                     res[data_type][v['Symbol']] = _parse_dates(value)
