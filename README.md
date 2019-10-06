@@ -101,6 +101,25 @@ Please note, that in the last example the closing price (`P`) for `S&PCOMP` tick
 data = DS.fetch('S&PCOMP', ['PO', 'PH', 'PL', 'PI'], date_from='May 6, 2010')
 ```
 
+#### Note 3: Currencies and names of symbols and fields
+
+`fetch` method also collects the currencies for the given mnemonics and fields. This information is not returned on `fetch` by default, and kept in the property `last_metadata` of the main class:
+```python
+res = DS.fetch(['@AAPL','U:MMM'], fields=['P','MV','VO','PH'])
+print(DS.last_metadata['Currencies'])
+```
+**Note**: Currency is not the same as the unit of the given field (data type). For example, the field `VO` has currency of `U$` here, however the volume is reported in the number of shares.
+
+It can be also explicitly returned by the `fetch` method, if the property `return_metadata` is set to True:
+```python
+res, meta = DS.fetch(['@AAPL','U:MMM'], fields=['P','MV','VO','PH'], return_metadata=True)
+print(meta['Currencies'])
+```
+In this case `fetch` also collects the names of the symbols and fields (data types):
+```python
+print(meta['SymbolNames'])
+print(meta['DataTypeNames'])
+```
 
 ### Index constituents, listings of stocks and mnemonics
 
