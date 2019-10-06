@@ -90,7 +90,7 @@ class Datastream(object):
         """
         self.raise_on_error = raise_on_error
         self.last_request = None
-        self._last_response_meta = None
+        self.last_metadata = None
         self._last_response_raw = None
 
         # Setting up proxy parameters if necessary
@@ -118,6 +118,7 @@ class Datastream(object):
         """ Call to the POST method of DSWS API """
         url = self._url + method
         self.last_request = {'url': url, 'request': request, 'error': None}
+        self.last_metadata = None
         try:
             res = requests.post(url, json=request, proxies=self._proxy)
             self.last_request['response'] = res.text
@@ -260,10 +261,13 @@ class Datastream(object):
         res = {}
         for key in meta:
             if key in ('DataTypeNames', 'SymbolNames'):
-                names = pd.DataFrame(meta[key]).set_index('Key')['Value']
-                names.index.name = key.replace('Names', '')
-                names.name = 'Name'
-                res[key] = names
+                if meta[key] is None:
+                    res[key] = None
+                else:
+                    names = pd.DataFrame(meta[key]).set_index('Key')['Value']
+                    names.index.name = key.replace('Names', '')
+                    names.name = 'Name'
+                    res[key] = names
             elif key == 'Currencies':
                 cur = pd.concat({key: pd.DataFrame(meta['Currencies'][key])
                                  for key in meta['Currencies']})
@@ -320,11 +324,11 @@ class Datastream(object):
         """
         if 'DataResponse' in response:  # Single request
             res, meta = self._parse_one(response['DataResponse'])
-            self._last_response_meta = meta
+            self.last_metadata = meta
             return (res, meta) if return_metadata else res
         if 'DataResponses' in response:  # Multiple requests
             results = [self._parse_one(r) for r in response['DataResponses']]
-            self._last_response_meta = [_[1] for _ in results]
+            self.last_metadata = [_[1] for _ in results]
             return results if return_metadata else [_[0] for _ in results]
         raise DatastreamException('Neither DataResponse nor DataResponses are found')
 
