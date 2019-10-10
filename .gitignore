@@ -3,3 +3,4 @@
 .pytest_cache/*
 .pytest_cache
 runtest.sh
+*.egg-info
