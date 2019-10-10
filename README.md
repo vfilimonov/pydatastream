@@ -352,7 +352,7 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.5 (2017-07-01) Backward-incompatible change: method `fetch()` for many tickers returns MultiIndex Dataframe instead of former Panel. This follows the development of the Pandas library where the Panels are deprecated starting version 0.20.0 (see [here](http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#whatsnew-0200-api-breaking-deprecate-panel)).
 - 0.5.1 (2017-11-17) Added Economic Point-in-Time (EPiT) functionality
 - 0.6 (2019-08-27) The library is rewritten to use the new REST-based Datastream Web Services (DSWS) interfaces instead of old SOAP-based DataWorks Enterprise (DWE), which was discontinued on July 1, 2019. Some methods (such as `system_info()` or `sources()`) have been removed as they're not supported by a new API.
-- 0.6.1 () Fixes, performance improvements. Added `get_futures_contracts()` and `get_next_release_dates()`.
+- 0.6.1 (2019-10-10) Fixes, performance improvements. Added `get_futures_contracts()` and `get_next_release_dates()`.
 
 Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
 
