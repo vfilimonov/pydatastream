@@ -5,15 +5,16 @@
 import warnings
 import json
 import requests
+from functools import wraps
 import pandas as pd
 
 ###############################################################################
 _URL = 'https://product.datastream.com/dswsclient/V1/DSService.svc/rest/'
 
-_FLDS_XREF = ('DSCD,EXMNEM,GEOG,GEOGC,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
+_FLDS_XREF = ('DSCD,EXMNEM,GEOGC,GEOGN,IBTKR,INDC,INDG,INDM,INDX,INDXEG,'
               'INDXFS,INDXL,INDXS,ISIN,ISINID,LOC,MNEM,NAME,SECD,TYPE'.split(','))
 
-_FLDS_XREF_FUT = ('MNEM,NAME,FLOT,FEX,EXCODE,LTDT,FUTBDATE,PCUR,ISOCUR,'
+_FLDS_XREF_FUT = ('MNEM,NAME,FLOT,FEX,GEOGC,GEOGN,EXCODE,LTDT,FUTBDATE,PCUR,ISOCUR,'
                   'TICKS,TICKV,TCYCLE,TPLAT'.split(','))
 
 _ASSET_TYPE_CODES = {'BD': 'Bonds & Convertibles',
@@ -79,6 +80,20 @@ def _parse_dates(dates):
 
 class DatastreamException(Exception):
     pass
+
+
+###############################################################################
+def lazy_property(fn):
+    """ Lazy-evaluated property of an object """
+    attr_name = '__lazy__' + fn.__name__
+
+    @property
+    @wraps(fn)
+    def _lazy_property(self):
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, fn(self))
+        return getattr(self, attr_name)
+    return _lazy_property
 
 
 ###############################################################################
@@ -370,7 +385,7 @@ class Datastream(object):
         res.index.name = None
         return res
 
-    #################################################################################
+    ###########################################################################
     def fetch(self, tickers, fields=None, date_from=None, date_to=None,
               freq=None, static=False, IsExpression=None, return_metadata=False):
         """Fetch the data from Datastream for a set of tickers and parse results.
@@ -429,7 +444,9 @@ class Datastream(object):
 
         return (data, meta) if return_metadata else data
 
-    #################################################################################
+    ###########################################################################
+    # Specific fetching methods
+    ###########################################################################
     def get_OHLCV(self, ticker, date_from=None, date_to=None):
         """Get Open, High, Low, Close prices and daily Volume for a given ticker.
 
@@ -457,7 +474,7 @@ class Datastream(object):
         return self.fetch(ticker, 'P', date_from, date_to,
                           freq='D', return_metadata=False)
 
-    #################################################################################
+    ###########################################################################
     def get_constituents(self, index_ticker, date=None, only_list=False):
         """ Get a list of all constituents of a given index.
 
@@ -496,7 +513,7 @@ class Datastream(object):
         """
         return self.fetch(ticker, _FLDS_XREF, static=True)
 
-    #################################################################################
+    ###########################################################################
     def get_asset_types(self, symbols):
         """ Get asset types for a given list of symbols
             Note: the method does not
@@ -512,7 +529,7 @@ class Datastream(object):
                 pass  # OK, we don't keep the order if not possible
         return res
 
-    #################################################################################
+    ###########################################################################
     def get_futures_contracts(self, market_code, only_list=False, include_dead=False):
         """ Get list of all contracts for a given futures market
 
@@ -538,7 +555,7 @@ class Datastream(object):
             res = pd.concat([res, res2])
         return res[res.MNEM != 'NA']  # Drop lines with empty mnemonics
 
-    #################################################################################
+    ###########################################################################
     def get_epit_vintage_matrix(self, mnemonic, date_from='1951-01-01', date_to=None):
         """ Construct the vintage matrix for a given economic series.
             Requires subscription to Thomson Reuters Economic Point-in-Time (EPiT).
@@ -589,7 +606,7 @@ class Datastream(object):
             res[date] = _tmp
         return pd.concat(res).RELV.unstack()
 
-    #################################################################################
+    ###########################################################################
     def get_epit_revisions(self, mnemonic, period, relh50=False):
         """ Return initial estimate and first revisions of a given economic time
             series and a given period.
@@ -615,7 +632,7 @@ class Datastream(object):
         res = pd.Series(res, name=data.loc['RELHP  ']).sort_index()
         return res
 
-    #################################################################################
+    ###########################################################################
     def get_next_release_dates(self, mnemonics, n_releases=1):
         """ Return the next date of release (NDoR) for a given economic series.
             Could return results for up to 12 releases in advance.
@@ -659,3 +676,38 @@ class Datastream(object):
         for col in ['DATE', 'DATE_LATEST', 'REF_PERIOD']:
             res[col] = pd.to_datetime(res[col], errors='coerce')
         return res
+
+    ###########################################################################
+    @lazy_property
+    def vacations_list(self):
+        """ List of mnemonics for holidays in different countries """
+        res = self.fetch('HOLIDAYS', ['MNEM', 'ENAME', 'GEOGN', 'GEOGC'], static=True)
+        return res[res['MNEM'] != 'NA'].sort_values('GEOGC')
+
+    def get_trading_days(self, countries, date_from=None, date_to=None):
+        """ Get list of trading dates for a given countries (speficied by ISO-2c)
+            Returning dataframe will contain values 1 and NaN, where 1 identifies
+            the business day.
+
+            So by multiplying this list with the price time series it will remove
+            padded values on non-trading days.
+
+            Example:
+                DS.get_trading_days(['US', 'UK', 'RS'], date_from='2010-01-01')
+        """
+        if isinstance(countries, str):
+            countries = [countries]
+
+        vacs = self.vacations_list
+        mnems = vacs[vacs.GEOGC.isin(countries)]
+        missing_isos = set(countries).difference(mnems.GEOGC)
+
+        if missing_isos:
+            raise DatastreamException(f'Unknowns ISO codes: {", ".join(missing_isos)}')
+        # By default 0 and NaN are returned, so we add 1
+        res = self.fetch(mnems.MNEM, date_from=date_from, date_to=date_to) + 1
+
+        if len(countries) == 1:
+            return res.iloc[:, 0].to_frame(name=countries[0])
+        return (res.iloc[:, 0].unstack(level=0)
+                   .rename(columns=mnems.set_index('MNEM')['GEOGC'])[countries])

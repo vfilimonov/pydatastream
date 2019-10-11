@@ -216,6 +216,21 @@ DS.fetch('ACH#(UKGDP...D,1Y)', date_from='1990-01-01')
 ```
 Documentation on the available functions are available on the [Thompson Reuters webhelp](http://product.datastream.com/navigator/advancehelpfiles/functions/webhelp/hfunc.htm).
 
+### Trading calendar
+
+By default Datastream does padding of the prices on the holidays (i.e. on a vacation days it returns the price of the previous day). In order to remove the padding one need to know which days were holidays in the past.
+
+The history of trading and non-trading days for each country could be returned using the function (`get_trading_days`):
+```python
+DS.get_trading_days(['US', 'UK', 'RS'], date_from='2010-01-01')
+```
+This function will return a dataframe that contains values 1 and NaN, where 1 identifies the business day. So by multiplying this list with the price time series it will remove padded values on non-trading days:
+```python
+DS.fetch('@AAPL', 'P', date_from='2010').mul(DS.get_trading_days('US', date_from='2010')['US'], axis=0)
+```
+
+The full list of available calendars (countries) is contained in the property `DS.vacations_list`.
+
 ### Performing several requests at once
 
 [Thomson Dataworks Enterprise User Guide](http://dataworks.thomson.com/Dataworks/Enterprise/1.0/documentation/user%20guide.pdf) suggests to optimize requests: very often it is quicker to make one bigger request than several smaller requests because of the relatively high transport overhead with web services.
@@ -353,7 +368,7 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.5.1 (2017-11-17) Added Economic Point-in-Time (EPiT) functionality
 - 0.6 (2019-08-27) The library is rewritten to use the new REST-based Datastream Web Services (DSWS) interfaces instead of old SOAP-based DataWorks Enterprise (DWE), which was discontinued on July 1, 2019. Some methods (such as `system_info()` or `sources()`) have been removed as they're not supported by a new API.
 - 0.6.1 (2019-10-10) Fixes, performance improvements. Added `get_futures_contracts()` and `get_next_release_dates()`.
-- 0.6.2 ()
+- 0.6.2 () Added trading calendar
 
 Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
 
@@ -372,6 +387,6 @@ A special thanks to:
 
 PyDatastream library is released under the MIT license.
 
-The license for the library is not extended in any sense to any of the content of the Refinitiv (former Thomson Reuters) Dataworks Enterprise, Datastream, Datastream Web Services, Datastream Navigator or related services. Appropriate contract with Thomson Reuters and valid credentials are required in order to use the API.
+The license for the library is not extended in any sense to any of the content of the Refinitiv (former Thomson Reuters) Dataworks Enterprise, Datastream, Datastream Web Services, Datastream Navigator or related services. Appropriate contract with the data vendor and valid credentials are required in order to use the API.
 
 Author of the library ([@vfilimonov](https://github.com/vfilimonov)) is not affiliated, associated, authorized, sponsored, endorsed by, or in any way officially connected with Thomson Reuters, or any of its subsidiaries or its affiliates. The names "Refinitiv", "Thomson Reuters" as well as related names are registered trademarks of respective owners.
