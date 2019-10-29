@@ -18,7 +18,8 @@ GitHub (https://github.com/vfilimonov/pydatastream/blob/master/README.md).
 
 _URL = 'http://github.com/vfilimonov/pydatastream'
 
-exec(open('pydatastream/_version.py').read())
+__version__ = None
+exec(open('pydatastream/_version.py').read())  # defines __version__ pylint: disable=W0122
 
 setup(name='PyDatastream',
       version=__version__,
@@ -31,5 +32,5 @@ setup(name='PyDatastream',
       license='MIT License',
       packages=['pydatastream'],
       install_requires=INSTALL_REQUIRES_LIST,
-      classifiers=['Programming Language :: Python :: 3', ]
+      classifiers=['Programming Language :: Python :: 3'],
       )

@@ -2,10 +2,11 @@
 
     (c) Vladimir Filimonov, 2013 - 2019
 """
+# pylint: disable=C0103,R0902,R0904,R0913,C0330
 import warnings
 import json
-import requests
 from functools import wraps
+import requests
 import pandas as pd
 
 ###############################################################################
@@ -79,7 +80,7 @@ def _parse_dates(dates):
 
 
 class DatastreamException(Exception):
-    pass
+    """ Exception class for Datastream """
 
 
 ###############################################################################
@@ -99,7 +100,10 @@ def lazy_property(fn):
 ###############################################################################
 # Main Datastream class
 ###############################################################################
-class Datastream(object):
+class Datastream():
+    """ Python interface to the Refinitiv Datastream API via Datastream Web
+        Services (DSWS).
+    """
     def __init__(self, username, password, raise_on_error=True, proxy=None, **kwargs):
         """Establish a connection to the Python interface to the Refinitiv Datastream
            (former Thomson Reuters Datastream) API via Datastream Web Services (DSWS).

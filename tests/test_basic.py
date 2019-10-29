@@ -2,6 +2,7 @@
 
     (c) Vladimir Filimonov, 2019
 """
+# pylint: disable=C0103,C0301
 import warnings
 import pytest
 import pydatastream as pds
@@ -46,10 +47,8 @@ def test_parse_dates():
     """ Test _parse_dates() """
     from pydatastream.pydatastream import _parse_dates
     import pandas as pd
-    assert _parse_dates(
-        '/Date(1565817068486)/') == pd.Timestamp('2019-08-14 21:11:08.486000')
-    assert _parse_dates(
-        '/Date(1565568000000+0000)/') == pd.Timestamp('2019-08-12 00:00:00')
+    assert _parse_dates('/Date(1565817068486)/') == pd.Timestamp('2019-08-14 21:11:08.486000')
+    assert _parse_dates('/Date(1565568000000+0000)/') == pd.Timestamp('2019-08-12 00:00:00')
 
     # Array of dates
     dates = ['/Date(1217548800000+0000)/', '/Date(1217808000000+0000)/',
@@ -120,7 +119,7 @@ def test_parse_response_static_1():
     s = (',,ISIN,ISINID,NAME\nD:BAS,2019-09-27,DE000BASF111,P,BASF\n'
          'D:BASX,2019-09-27,DE000BASF111,S,BASF (XET)\n'
          'HN:BAS,2019-09-27,DE000BASF111,S,BASF (BUD)\n')
-    df = pd.read_csv(StringIO(s), index_col=[0,1], parse_dates=[1])
+    df = pd.read_csv(StringIO(s), index_col=[0, 1], parse_dates=[1])
 
     res = {'AdditionalResponses': None,
            'DataTypeNames': [{'Key': 'ISIN', 'Value': 'ISIN CODE'},
