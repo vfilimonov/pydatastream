@@ -479,23 +479,24 @@ class Datastream():
                           freq='D', return_metadata=False)
 
     ###########################################################################
-    def get_constituents(self, index_ticker, date=None, only_list=False):
+    def get_constituents(self, index_ticker, only_list=False):
         """ Get a list of all constituents of a given index.
 
             index_ticker - Datastream ticker for index
-            date         - date for which list should be retrieved (if None then
-                           list of present constituents is retrieved)
             only_list    - request only list of symbols. By default the method
                            retrieves many extra fields with information (various
                            mnemonics and codes). This might pose some problems
                            for large indices like Russel-3000. If only_list=True,
                            then only the list of symbols and names are retrieved.
+
+            NOTE: In contrast to retired DWE interface, DSWS does not support
+                  fetching historical lists of constituents.
         """
         if only_list:
             fields = ['MNEM', 'NAME']
         else:
             fields = _FLDS_XREF
-        return self.fetch('L' + index_ticker, fields, date_from=date, static=True)
+        return self.fetch('L' + index_ticker, fields, static=True)
 
     def get_all_listings(self, ticker):
         """ Get all listings and their symbols for the given security

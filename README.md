@@ -127,11 +127,7 @@ PyDatastream also has an interface for retrieving list of constituents of indice
 ```python
 DS.get_constituents('S&PCOMP')
 ```
-
-As an option, the list for a specific date can be requested as well:
-```python
-DS.get_constituents('S&PCOMP', '1-sept-2013')
-```
+Note: In contrast to retired DWE interface, DSWS does not support fetching historical lists of constituents.
 
 By default the method retrieves many various mnemonics and codes for the constituents,
 which might pose a problem for large indices like Russel-3000 (sometimes the request might be killed
