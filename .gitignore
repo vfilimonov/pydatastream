@@ -4,3 +4,4 @@
 .pytest_cache
 runtest.sh
 *.egg-info
+tasks.todo

@@ -1,7 +1,5 @@
 from distutils.core import setup
 
-INSTALL_REQUIRES_LIST = ['pandas', 'requests']
-
 DESCRIPTION = ('Python interface to the Refinitiv Datastream (former Thomson '
                'Reuters Datastream) API via Datastream Web Services (DSWS)')
 
@@ -31,6 +29,9 @@ setup(name='PyDatastream',
       author_email='vladimir.a.filimonov@gmail.com',
       license='MIT License',
       packages=['pydatastream'],
-      install_requires=INSTALL_REQUIRES_LIST,
+      install_requires=['requests'],
+      extras_require={
+          'pandas':  ['pandas'],
+          },
       classifiers=['Programming Language :: Python :: 3'],
       )
