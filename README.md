@@ -364,7 +364,8 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.5.1 (2017-11-17) Added Economic Point-in-Time (EPiT) functionality
 - 0.6 (2019-08-27) The library is rewritten to use the new REST-based Datastream Web Services (DSWS) interfaces instead of old SOAP-based DataWorks Enterprise (DWE), which was discontinued on July 1, 2019. Some methods (such as `system_info()` or `sources()`) have been removed as they're not supported by a new API.
 - 0.6.1 (2019-10-10) Fixes, performance improvements. Added `get_futures_contracts()` and `get_next_release_dates()`.
-- 0.6.2 (2020-03-08) Added trading calendar
+- 0.6.2 (2020-03-08) Added trading calendar.
+- 0.6.3 ()
 
 Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
 
