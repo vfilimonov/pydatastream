@@ -1,3 +1,3 @@
 
 from .pydatastream import Datastream, DatastreamException
-from ._version import __version__
+from ._version import *

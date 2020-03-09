@@ -16,7 +16,7 @@ GitHub (https://github.com/vfilimonov/pydatastream/blob/master/README.md).
 
 _URL = 'http://github.com/vfilimonov/pydatastream'
 
-__version__ = None
+__version__ = __author__ = __email__ = None  # will be extracted from _version.py
 exec(open('pydatastream/_version.py').read())  # defines __version__ pylint: disable=W0122
 
 setup(name='PyDatastream',
@@ -25,8 +25,8 @@ setup(name='PyDatastream',
       long_description=LONG_DESCRIPTION,
       url=_URL,
       download_url=_URL + '/archive/v' + __version__ + '.zip',
-      author='Vladimir Filimonov',
-      author_email='vladimir.a.filimonov@gmail.com',
+      author=__author__,
+      author_email=__email__,
       license='MIT License',
       packages=['pydatastream'],
       install_requires=['requests'],

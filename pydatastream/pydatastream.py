@@ -1,6 +1,6 @@
 """ pydatastream main module
 
-    (c) Vladimir Filimonov, 2013 - 2019
+    (c) Vladimir Filimonov, 2013 - 2020
 """
 # pylint: disable=C0103,R0902,R0904,R0913,C0330
 import warnings
