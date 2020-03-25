@@ -5,6 +5,7 @@
 # pylint: disable=C0103,R0902,R0904,R0913,C0330
 import warnings
 import json
+import math
 from functools import wraps
 import requests
 import pandas as pd
@@ -332,7 +333,7 @@ class Datastream():
                 if v['Type'] == 0:  # Error
                     if self.raise_on_error:
                         raise DatastreamException(f'"{v["Symbol"]}"("{data_type}"): {value}')
-                    res[data_type][v['Symbol']] = pd.np.NaN
+                    res[data_type][v['Symbol']] = math.nan
                 elif v['Type'] == 4:  # Date
                     res[data_type][v['Symbol']] = _parse_dates(value)
                 else:
