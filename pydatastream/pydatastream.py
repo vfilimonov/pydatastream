@@ -299,7 +299,7 @@ class Datastream():
         res = {}
         for key in meta:
             if key in ('DataTypeNames', 'SymbolNames'):
-                if meta[key] is None:
+                if not meta[key]:   # None or empty list
                     res[key] = None
                 else:
                     names = pd.DataFrame(meta[key]).set_index('Key')['Value']
