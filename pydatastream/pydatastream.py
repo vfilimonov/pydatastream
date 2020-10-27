@@ -2,7 +2,7 @@
 
     (c) Vladimir Filimonov, 2013 - 2020
 """
-# pylint: disable=C0103,R0902,R0904,R0913,C0330
+# pylint: disable=C0103,R0902,R0904,R0913
 import warnings
 import json
 import math
@@ -165,8 +165,8 @@ class Datastream():
 
         try:
             response = self.last_request['response'] = json.loads(self.last_request['response'])
-        except json.JSONDecodeError:
-            raise DatastreamException('Server response could not be parsed')
+        except json.JSONDecodeError as e:
+            raise DatastreamException('Server response could not be parsed') from e
 
         if 'Code' in response:
             code = response['Code']
@@ -185,14 +185,20 @@ class Datastream():
             return
         data = {"UserName": username, "Password": password}
         self._token = dict(self._api_post('GetToken', data))
-        self._token['TokenExpiry'] = _parse_dates(self._token['TokenExpiry'])
+        self._token['TokenExpiry'] = _parse_dates(self._token['TokenExpiry']).tz_localize('UTC')
+
+        # Token is invalidated 15 minutes before exporation time
+        # Note: According to https://github.com/vfilimonov/pydatastream/issues/27
+        #       tokens do not always respect the (as of now 24 hours) expiry time
+        #       So for this reason I limit the token life at 6 hours.
+        self._token['RenewTokenAt'] = min(self._token['TokenExpiry'] - pd.Timedelta('15m'),
+                                          pd.Timestamp.utcnow() + pd.Timedelta('6H'))
 
     @property
     def _token_is_expired(self):
         if self._token is None:
             return True
-        # We invalidate token 15 minutes before expiration time
-        if self._token['TokenExpiry'] < pd.Timestamp('now') - pd.Timedelta('15m'):
+        if pd.Timestamp.utcnow() > self._token['RenewTokenAt']:
             return True
         return False
 
@@ -256,7 +262,7 @@ class Datastream():
 
         # Instruments
         if isinstance(ticker, str):
-            ticker = ticker
+            # ticker = ticker  ## Nothing to change
             is_list = None
         elif hasattr(ticker, '__len__'):
             ticker = ','.join(ticker)
@@ -531,7 +537,7 @@ class Datastream():
         if isinstance(symbols, (list, pd.Series)):
             try:
                 res = res.loc[symbols]
-            except:
+            except KeyError:
                 pass  # OK, we don't keep the order if not possible
         return res
 
