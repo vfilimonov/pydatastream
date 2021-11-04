@@ -358,6 +358,11 @@ The complete list of datatypes (including static) for a particular asset class i
 
 Help for Datastream Navigator is available [here](http://product.datastream.com/WebHelp/Navigator/4.5/HelpFiles/Nav_help.htm).
 
+### Limits of the API
+
+- Datastream limits single call request to 100 series, i.e. (# of tickers) x (# of fields) should not exceed 100 (e.g. 10x10 or 20x5, etc). 
+- Number of time-series data point is not limited as long as the monthly limit of 10 million data point is not exceeded.
+
 
 ## Version history
 
