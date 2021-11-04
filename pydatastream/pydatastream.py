@@ -1,8 +1,7 @@
 """ pydatastream main module
 
-    (c) Vladimir Filimonov, 2013 - 2020
+    (c) Vladimir Filimonov, 2013 - 2021
 """
-# pylint: disable=C0103,R0902,R0904,R0913
 import warnings
 import json
 import math
@@ -398,7 +397,8 @@ class Datastream():
 
     ###########################################################################
     def fetch(self, tickers, fields=None, date_from=None, date_to=None,
-              freq=None, static=False, IsExpression=None, return_metadata=False):
+              freq=None, static=False, IsExpression=None, return_metadata=False,
+              always_multiindex=False):
         """Fetch the data from Datastream for a set of tickers and parse results.
 
            tickers - ticker or symbol, or list of symbols
@@ -408,6 +408,12 @@ class Datastream():
            static  - True for static (snapshot) requests
            IsExpression - if True, it will explicitly assume that list of tickers
                           contain expressions. Otherwise it will try to infer it.
+           return_metadata - if True, then tuple (data, metadata) will be returned,
+                             otherwise only data
+           always_multiindex - if True, then even for 1 ticker requested, resulting
+                               dataframe will have multiindex (ticker, date).
+                               If False (default), then request of single ticker will
+                               result in a dataframe indexed by date only.
 
            Notes: - several fields should be passed as a list, and not as a
                     comma-separated string!
@@ -417,7 +423,9 @@ class Datastream():
 
            Result format depends on the number of requested tickers and fields:
              - 1 ticker         - DataFrame with fields in column names
-             - many tickers     - DataFrame with fields in column names and
+                                  (in order to keep multiindex even for single
+                                  ticker, set `always_multiindex` to True)
+             - several tickers  - DataFrame with fields in column names and
                                   MultiIndex (ticker, date)
              - static request   - DataFrame indexed by tickers and with fields
                                   in column names
@@ -451,7 +459,8 @@ class Datastream():
             data = data.reset_index(level=1, drop=True)
         elif len(data.index.levels[0]) == 1:
             # Only one ticker - drop tickers from MultiIndex
-            data = data.reset_index(level=0, drop=True)
+            if not always_multiindex:
+                data = data.reset_index(level=0, drop=True)
 
         return (data, meta) if return_metadata else data
 

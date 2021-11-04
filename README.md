@@ -62,6 +62,11 @@ res = DS.fetch(['@AAPL','U:MMM'], fields=['P','MV','VO','PH'], date_from='2000-0
 
 The resulting data frame could be sliced, in order to select all fields for a given ticker (`res.loc['U:MMM']`) or data for the specific field for all tickers ('res['MV'].unstack(level=0)').
 
+**Note**: in order to force resulting dataframe to have MultiIndex even in case of a single ticker requested, set argument `always_multiindex=True`:
+```python
+res = DS.fetch('@AAPL', fields=['P','MV','VO','PH'], date_from='2000-05-03', always_multiindex=True)
+```
+
 Starting and ending dates could be provided as strings or `pandas.Timestamp` objects. One useful option is to fetch the data using `BDATE` as a starting date. In this case the whole series will be fetched from the first available date will be fetched. For several series - the earliest starting date of all of them should be used:
 ```python
 res = DS.fetch(['@AAPL','U:MMM'], 'P', date_from='BDATE')
@@ -367,6 +372,7 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.6.2 (2020-03-08) Added trading calendar.
 - 0.6.3 (2020-08-04) Minor bug fixes
 - 0.6.4 (2020-10-30) Fix token expiration time
+- 0.6.5 (2021-11-xx) Add `always_multiindex` argument to `fetch()`
 
 Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
 
