@@ -377,7 +377,7 @@ Help for Datastream Navigator is available [here](http://product.datastream.com/
 - 0.6.2 (2020-03-08) Added trading calendar.
 - 0.6.3 (2020-08-04) Minor bug fixes
 - 0.6.4 (2020-10-30) Fix token expiration time
-- 0.6.5 (2021-11-xx) Add `always_multiindex` argument to `fetch()`
+- 0.6.5 (2021-11-05) Add `always_multiindex` argument to `fetch()`
 
 Note 1: any versions of pydatastream prior to 0.6 will not work anymore.
 
